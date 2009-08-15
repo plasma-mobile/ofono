@@ -1,0 +1,13 @@
+ofono (0.3-1) unstable; urgency=low
+
+  * New upstream release.
+  * Drop ofonod manpage; merged upstream.
+
+ -- Andres Salomon <dilinger@debian.org>  Sat, 15 Aug 2009 15:55:11 +0000
+
+ofono (0.1-1) unstable; urgency=low
+
+  * Initial release.
+
+ -- Andres Salomon <dilinger@debian.org>  Sat, 11 Jul 2009 18:37:48 -0400
+
