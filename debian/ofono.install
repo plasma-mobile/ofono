@@ -1,2 +1,3 @@
 debian/tmp/etc/dbus-1/system.d/*
 debian/tmp/usr/sbin/ofonod
+debian/tmp/etc/ofono/modem.conf

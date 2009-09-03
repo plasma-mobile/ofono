@@ -1,3 +1,11 @@
+ofono (0.4-1) unstable; urgency=low
+
+  * New upstream release.
+  * Update copyright file.
+  * Include the new modem.conf.
+
+ -- Andres Salomon <dilinger@debian.org>  Thu, 03 Sep 2009 19:51:21 +0000
+
 ofono (0.3-1) unstable; urgency=low
 
   * New upstream release.
