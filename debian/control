@@ -3,7 +3,7 @@ Section: admin
 Priority: optional
 Maintainer: Andres Salomon <dilinger@debian.org>
 Build-Depends: debhelper (>> 5), cdbs, libglib2.0-dev (>= 2.16), libdbus-glib-1-dev
-Standards-Version: 3.8.1
+Standards-Version: 3.8.3
 Homepage: http://www.ofono.org/
 
 Package: ofono
