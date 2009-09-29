@@ -1,3 +1,9 @@
+ofono (0.6-2) unstable; urgency=low
+
+  * Add a -dbg package.
+
+ -- Andres Salomon <dilinger@debian.org>  Tue, 29 Sep 2009 20:05:20 +0000
+
 ofono (0.6-1) unstable; urgency=low
 
   * New upstream release.
