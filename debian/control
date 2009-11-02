@@ -8,7 +8,8 @@ Homepage: http://www.ofono.org/
 
 Package: ofono
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, dbus, udev
+Depends: ${shlibs:Depends}, ${misc:Depends}, dbus
+Recommends: udev
 Description: Mobile telephony stack (daemon)
  oFono is a stack for mobile telephony devices on Linux.  oFono supports
  speaking to telephony devices through specific drivers, or with generic

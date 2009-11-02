@@ -1,3 +1,10 @@
+ofono (0.9-1) unstable; urgency=low
+
+  * New upstream release.
+  * Since it runs w/out it, change the udev Depends to a Recommends.
+
+ -- Andres Salomon <dilinger@debian.org>  Mon, 02 Nov 2009 18:46:37 +0000
+
 ofono (0.8-1) unstable; urgency=low
 
   * New upstream release.
