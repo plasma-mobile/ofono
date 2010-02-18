@@ -1,3 +1,9 @@
+ofono (0.18-1) unstable; urgency=low
+
+  * New upstream release.
+
+ -- Andres Salomon <dilinger@debian.org>  Thu, 18 Feb 2010 03:58:18 +0000
+
 ofono (0.9-1) unstable; urgency=low
 
   * New upstream release.
