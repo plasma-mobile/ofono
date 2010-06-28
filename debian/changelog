@@ -1,3 +1,11 @@
+ofono (0.23-0ubuntu1) maverick; urgency=low
+
+  * New upstream version
+  * debian/control:
+    - build-depends on libcap-ng-dev
+
+ -- Sebastien Bacher <seb128@ubuntu.com>  Mon, 28 Jun 2010 17:09:26 +0200
+
 ofono (0.20-0ubuntu1) maverick; urgency=low
 
   * New upstream release v0.20
