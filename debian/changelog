@@ -1,3 +1,27 @@
+ofono (0.26-0ubuntu2) maverick; urgency=low
+
+  [ Kalle Valo <kalle.valo@canonical.com> ]
+  * Ofono should use upstart (LP: #600503)
+    - add debian/ofono.upstart
+    - add debian/ofono.preinst
+    - remove debian/ofono.init
+    - remote debian/ofono.default
+  * Add Apport support (LP: #600502)
+    - add debian/ofono-crashdb.conf
+    - add debian/source_ofono.py
+  * Fix LP: #612479 - Huawei with invalid serial not recognised
+    - add debian/patches/01-check-that-modem-name-is-valid.patch
+    - add debian/patches/series
+
+  [ Chris Coulson <chris.coulson@canonical.com> ]
+  * Switch to dpkg-source 3.0 (quilt) format
+    - add debian/source/format
+  * Fix script-in-etc-init.d-not-registered-via-update-rc.d warning
+    triggered by shipping the symlink to the upstart job
+    - add debian/ofono.lintian-overrides
+
+ -- Kalle Valo <kalle.valo@canonical.com>  Thu, 02 Sep 2010 18:21:57 +0100
+
 ofono (0.26-0ubuntu1) maverick; urgency=low
 
   [ Kalle Valo <kalle.valo@canonical.com> ]
