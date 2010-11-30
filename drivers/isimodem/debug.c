@@ -1,21 +1,21 @@
 /*
- * This file is part of oFono - Open Source Telephony
  *
- * Copyright (C) 2009-2010 Nokia Corporation and/or its subsidiary(-ies).
+ *  oFono - Open Source Telephony
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * version 2 as published by the Free Software Foundation.
+ *  Copyright (C) 2009-2010 Nokia Corporation and/or its subsidiary(-ies).
  *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
+ *  This program is free software; you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License version 2 as
+ *  published by the Free Software Foundation.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
- * 02110-1301 USA
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program; if not, write to the Free Software
+ *  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
 
@@ -69,6 +69,19 @@ const char *ss_message_id_name(enum ss_message_id value)
 	}
 	return "SS_<UNKNOWN>";
 }
+
+const char *ss_ussd_type_name(enum ss_ussd_type value)
+{
+	switch (value) {
+		_(SS_GSM_USSD_MT_REPLY);
+		_(SS_GSM_USSD_COMMAND);
+		_(SS_GSM_USSD_REQUEST);
+		_(SS_GSM_USSD_NOTIFY);
+		_(SS_GSM_USSD_END);
+	}
+	return "SS_<UNKNOWN>";
+}
+
 
 const char *ss_subblock_name(enum ss_subblock value)
 {
@@ -975,6 +988,31 @@ const char *gpds_isi_cause_name(enum gpds_isi_cause value)
 		_(GPDS_CAUSE_ACCESS_BARRED);
 		_(GPDS_CAUSE_FATAL_FAILURE);
 		_(GPDS_CAUSE_AUT_FAILURE);
+	}
+	return "GPDS_<UNKNOWN>";
+}
+
+const char *gpds_transfer_status_name(enum gpds_transfer_status value)
+{
+	switch (value) {
+		_(GPDS_TRANSFER_NOT_AVAIL);
+		_(GPDS_TRANSFER_AVAIL);
+	}
+	return "GPDS_<UNKNOWN>";
+}
+
+const char *gpds_transfer_cause_name(enum gpds_transfer_cause value)
+{
+	switch (value) {
+		_(GPDS_TRANSFER_CAUSE_ATTACHED);
+		_(GPDS_TRANSFER_CAUSE_DETACHED);
+		_(GPDS_TRANSFER_CAUSE_RESUMED);
+		_(GPDS_TRANSFER_CAUSE_SUSPENDED_NO_COVERAGE);
+		_(GPDS_TRANSFER_CAUSE_SUSPENDED_CALL_SMS);
+		_(GPDS_TRANSFER_CAUSE_SUSPENDED_CALL);
+		_(GPDS_TRANSFER_CAUSE_SUSPENDED_RAU);
+		_(GPDS_TRANSFER_CAUSE_SUSPENDED_LU);
+		_(GPDS_TRANSFER_CAUSE_DSAC_RESTRICTION);
 	}
 	return "GPDS_<UNKNOWN>";
 }

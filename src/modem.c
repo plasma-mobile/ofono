@@ -42,6 +42,8 @@ static int next_modem_id = 0;
 static gboolean powering_down = FALSE;
 static int modems_remaining = 0;
 
+static struct ofono_watchlist *g_modemwatches = NULL;
+
 enum property_type {
 	PROPERTY_TYPE_INVALID = 0,
 	PROPERTY_TYPE_STRING,
@@ -70,6 +72,7 @@ struct ofono_modem {
 	ofono_bool_t		powered_pending;
 	guint			timeout;
 	ofono_bool_t		online;
+	struct ofono_watchlist	*online_watches;
 	GHashTable		*properties;
 	struct ofono_sim	*sim;
 	unsigned int		sim_watch;
@@ -234,6 +237,7 @@ void __ofono_atom_unregister(struct ofono_atom *atom)
 	call_watches(atom, OFONO_ATOM_WATCH_CONDITION_UNREGISTERED);
 
 	atom->unregister(atom);
+	atom->unregister = NULL;
 }
 
 gboolean __ofono_atom_get_registered(struct ofono_atom *atom)
@@ -327,6 +331,8 @@ static void flush_atoms(struct ofono_modem *modem, enum modem_state new_state)
 	GSList *prev;
 	GSList *tmp;
 
+	DBG("");
+
 	prev = NULL;
 	cur = modem->atoms;
 
@@ -357,12 +363,30 @@ static void flush_atoms(struct ofono_modem *modem, enum modem_state new_state)
 	}
 }
 
+static void notify_online_watches(struct ofono_modem *modem)
+{
+	struct ofono_watchlist_item *item;
+	GSList *l;
+	ofono_modem_online_notify_func notify;
+
+	if (modem->online_watches == NULL)
+		return;
+
+	for (l = modem->online_watches->items; l; l = l->next) {
+		item = l->data;
+		notify = item->notify;
+		notify(modem->online, item->notify_data);
+	}
+}
+
 static void modem_change_state(struct ofono_modem *modem,
 				enum modem_state new_state)
 {
 	struct ofono_modem_driver const *driver = modem->driver;
 	enum modem_state old_state = modem->modem_state;
 	ofono_bool_t new_online = new_state == MODEM_STATE_ONLINE;
+
+	DBG("old state: %d, new state: %d", old_state, new_state);
 
 	if (old_state == new_state)
 		return;
@@ -396,14 +420,66 @@ static void modem_change_state(struct ofono_modem *modem,
 				driver->post_sim(modem);
 			__ofono_history_probe_drivers(modem);
 			__ofono_nettime_probe_drivers(modem);
-		}
+		} else
+			notify_online_watches(modem);
+
 		break;
 
 	case MODEM_STATE_ONLINE:
 		if (driver->post_online)
 			driver->post_online(modem);
+
+		notify_online_watches(modem);
 		break;
 	}
+}
+
+static void sim_state_watch(enum ofono_sim_state new_state, void *user)
+{
+	struct ofono_modem *modem = user;
+
+	switch (new_state) {
+	case OFONO_SIM_STATE_NOT_PRESENT:
+		modem_change_state(modem, MODEM_STATE_PRE_SIM);
+		break;
+	case OFONO_SIM_STATE_INSERTED:
+		break;
+	case OFONO_SIM_STATE_READY:
+		modem_change_state(modem, MODEM_STATE_OFFLINE);
+
+		/*
+		 * If we don't have the set_online method, also proceed
+		 * straight to the online state
+		 */
+		if (modem->driver->set_online == NULL)
+			modem_change_state(modem, MODEM_STATE_ONLINE);
+
+		break;
+	}
+}
+
+unsigned int __ofono_modem_add_online_watch(struct ofono_modem *modem,
+					ofono_modem_online_notify_func notify,
+					void *data, ofono_destroy_func destroy)
+{
+	struct ofono_watchlist_item *item;
+
+	if (modem == NULL || notify == NULL)
+		return 0;
+
+	item = g_new0(struct ofono_watchlist_item, 1);
+
+	item->notify = notify;
+	item->destroy = destroy;
+	item->notify_data = data;
+
+	return __ofono_watchlist_add_item(modem->online_watches, item);
+}
+
+void __ofono_modem_remove_online_watch(struct ofono_modem *modem,
+					unsigned int id)
+{
+	__ofono_watchlist_remove_item(modem->online_watches, id);
 }
 
 static void online_cb(const struct ofono_error *error, void *data)
@@ -412,7 +488,7 @@ static void online_cb(const struct ofono_error *error, void *data)
 	DBusMessage *reply;
 
 	if (error->type == OFONO_ERROR_TYPE_NO_ERROR &&
-		modem->modem_state == MODEM_STATE_OFFLINE)
+			modem->modem_state == MODEM_STATE_OFFLINE)
 		reply = dbus_message_new_method_return(modem->pending);
 	else
 		reply = __ofono_error_failed(modem->pending);
@@ -420,7 +496,7 @@ static void online_cb(const struct ofono_error *error, void *data)
 	__ofono_dbus_pending_reply(&modem->pending, reply);
 
 	if (error->type == OFONO_ERROR_TYPE_NO_ERROR &&
-		modem->modem_state == MODEM_STATE_OFFLINE)
+			modem->modem_state == MODEM_STATE_OFFLINE)
 		modem_change_state(modem, MODEM_STATE_ONLINE);
 }
 
@@ -437,7 +513,7 @@ static void offline_cb(const struct ofono_error *error, void *data)
 	__ofono_dbus_pending_reply(&modem->pending, reply);
 
 	if (error->type == OFONO_ERROR_TYPE_NO_ERROR &&
-		modem->modem_state == MODEM_STATE_ONLINE)
+				modem->modem_state == MODEM_STATE_ONLINE)
 		modem_change_state(modem, MODEM_STATE_OFFLINE);
 }
 
@@ -481,33 +557,19 @@ ofono_bool_t ofono_modem_get_online(struct ofono_modem *modem)
 	return modem->online;
 }
 
-static DBusMessage *modem_get_properties(DBusConnection *conn,
-						DBusMessage *msg, void *data)
+void __ofono_modem_append_properties(struct ofono_modem *modem,
+						DBusMessageIter *dict)
 {
-	struct ofono_modem *modem = data;
-	DBusMessage *reply;
-	DBusMessageIter iter;
-	DBusMessageIter dict;
 	char **interfaces;
 	char **features;
 	int i;
 	GSList *l;
 	struct ofono_atom *devinfo_atom;
 
-	reply = dbus_message_new_method_return(msg);
-	if (!reply)
-		return NULL;
-
-	dbus_message_iter_init_append(reply, &iter);
-
-	dbus_message_iter_open_container(&iter, DBUS_TYPE_ARRAY,
-					OFONO_PROPERTIES_ARRAY_SIGNATURE,
-					&dict);
-
-	ofono_dbus_dict_append(&dict, "Online", DBUS_TYPE_BOOLEAN,
+	ofono_dbus_dict_append(dict, "Online", DBUS_TYPE_BOOLEAN,
 				&modem->online);
 
-	ofono_dbus_dict_append(&dict, "Powered", DBUS_TYPE_BOOLEAN,
+	ofono_dbus_dict_append(dict, "Powered", DBUS_TYPE_BOOLEAN,
 				&modem->powered);
 
 	devinfo_atom = __ofono_modem_find_atom(modem, OFONO_ATOM_TYPE_DEVINFO);
@@ -519,21 +581,21 @@ static DBusMessage *modem_get_properties(DBusConnection *conn,
 		info = __ofono_atom_get_data(devinfo_atom);
 
 		if (info->manufacturer)
-			ofono_dbus_dict_append(&dict, "Manufacturer",
+			ofono_dbus_dict_append(dict, "Manufacturer",
 						DBUS_TYPE_STRING,
 						&info->manufacturer);
 
 		if (info->model)
-			ofono_dbus_dict_append(&dict, "Model", DBUS_TYPE_STRING,
+			ofono_dbus_dict_append(dict, "Model", DBUS_TYPE_STRING,
 						&info->model);
 
 		if (info->revision)
-			ofono_dbus_dict_append(&dict, "Revision",
+			ofono_dbus_dict_append(dict, "Revision",
 						DBUS_TYPE_STRING,
 						&info->revision);
 
 		if (info->serial)
-			ofono_dbus_dict_append(&dict, "Serial",
+			ofono_dbus_dict_append(dict, "Serial",
 						DBUS_TYPE_STRING,
 						&info->serial);
 	}
@@ -541,22 +603,40 @@ static DBusMessage *modem_get_properties(DBusConnection *conn,
 	interfaces = g_new0(char *, g_slist_length(modem->interface_list) + 1);
 	for (i = 0, l = modem->interface_list; l; l = l->next, i++)
 		interfaces[i] = l->data;
-	ofono_dbus_dict_append_array(&dict, "Interfaces", DBUS_TYPE_STRING,
+	ofono_dbus_dict_append_array(dict, "Interfaces", DBUS_TYPE_STRING,
 					&interfaces);
 	g_free(interfaces);
-
 
 	features = g_new0(char *, g_slist_length(modem->feature_list) + 1);
 	for (i = 0, l = modem->feature_list; l; l = l->next, i++)
 		features[i] = l->data;
-	ofono_dbus_dict_append_array(&dict, "Features", DBUS_TYPE_STRING,
+	ofono_dbus_dict_append_array(dict, "Features", DBUS_TYPE_STRING,
 					&features);
 	g_free(features);
 
 	if (modem->name)
-		ofono_dbus_dict_append(&dict, "Name", DBUS_TYPE_STRING,
+		ofono_dbus_dict_append(dict, "Name", DBUS_TYPE_STRING,
 					&modem->name);
+}
 
+static DBusMessage *modem_get_properties(DBusConnection *conn,
+						DBusMessage *msg, void *data)
+{
+	struct ofono_modem *modem = data;
+	DBusMessage *reply;
+	DBusMessageIter iter;
+	DBusMessageIter dict;
+
+	reply = dbus_message_new_method_return(msg);
+	if (!reply)
+		return NULL;
+
+	dbus_message_iter_init_append(reply, &iter);
+
+	dbus_message_iter_open_container(&iter, DBUS_TYPE_ARRAY,
+					OFONO_PROPERTIES_ARRAY_SIGNATURE,
+					&dict);
+	__ofono_modem_append_properties(modem, &dict);
 	dbus_message_iter_close_container(&iter, &dict);
 
 	return reply;
@@ -686,8 +766,15 @@ static DBusMessage *modem_set_property(DBusConnection *conn,
 						"Powered", DBUS_TYPE_BOOLEAN,
 						&powered);
 
-		if (powered)
+		if (powered) {
 			modem_change_state(modem, MODEM_STATE_PRE_SIM);
+
+			/* Force SIM Ready for devies with no sim atom */
+			if (__ofono_modem_find_atom(modem,
+						OFONO_ATOM_TYPE_SIM) == NULL)
+				sim_state_watch(OFONO_SIM_STATE_READY, modem);
+		} else
+			modem_change_state(modem, MODEM_STATE_POWER_OFF);
 
 		return NULL;
 	}
@@ -710,6 +797,7 @@ static GDBusSignalTable modem_signals[] = {
 void ofono_modem_set_powered(struct ofono_modem *modem, ofono_bool_t powered)
 {
 	DBusConnection *conn = ofono_dbus_get_connection();
+	dbus_bool_t dbus_powered = powered;
 
 	if (modem->timeout > 0) {
 		g_source_remove(modem->timeout);
@@ -729,28 +817,34 @@ void ofono_modem_set_powered(struct ofono_modem *modem, ofono_bool_t powered)
 
 	modem->powered_pending = powered;
 
-	if (modem->powered != powered) {
-		dbus_bool_t dbus_powered = powered;
-		modem->powered = powered;
+	if (modem->powered == powered)
+		goto out;
 
-		if (modem->driver == NULL) {
-			ofono_error("Calling ofono_modem_set_powered on a"
-					"modem with no driver is not valid, "
-					"please fix the modem driver.");
-			return;
-		}
+	modem->powered = powered;
 
-		ofono_dbus_signal_property_changed(conn, modem->path,
-						OFONO_MODEM_INTERFACE,
-						"Powered", DBUS_TYPE_BOOLEAN,
-						&dbus_powered);
-
-		if (powered)
-			modem_change_state(modem, MODEM_STATE_PRE_SIM);
-		else
-			modem_change_state(modem, MODEM_STATE_POWER_OFF);
+	if (modem->driver == NULL) {
+		ofono_error("Calling ofono_modem_set_powered on a"
+				"modem with no driver is not valid, "
+				"please fix the modem driver.");
+		return;
 	}
 
+	ofono_dbus_signal_property_changed(conn, modem->path,
+					OFONO_MODEM_INTERFACE,
+					"Powered", DBUS_TYPE_BOOLEAN,
+					&dbus_powered);
+
+	if (powered) {
+		modem_change_state(modem, MODEM_STATE_PRE_SIM);
+
+		/* Force SIM Ready for devices with no sim atom */
+		if (__ofono_modem_find_atom(modem,
+					OFONO_ATOM_TYPE_SIM) == NULL)
+			sim_state_watch(OFONO_SIM_STATE_READY, modem);
+	} else
+		modem_change_state(modem, MODEM_STATE_POWER_OFF);
+
+out:
 	if (powering_down && powered == FALSE) {
 		modems_remaining -= 1;
 
@@ -806,10 +900,10 @@ static const struct {
 	{ OFONO_NETWORK_REGISTRATION_INTERFACE,		"net"	},
 	{ OFONO_RADIO_SETTINGS_INTERFACE,		"rat"	},
 	{ OFONO_CELL_BROADCAST_INTERFACE,		"cbs"	},
-	{ OFONO_SMS_MANAGER_INTERFACE,			"sms"	},
+	{ OFONO_MESSAGE_MANAGER_INTERFACE,		"sms"	},
 	{ OFONO_SIM_MANAGER_INTERFACE,			"sim"	},
 	{ OFONO_STK_INTERFACE,				"stk"	},
-	{ OFONO_DATA_CONNECTION_MANAGER_INTERFACE,	"gprs"	},
+	{ OFONO_CONNECTION_MANAGER_INTERFACE,		"gprs"	},
 	{ },
 };
 
@@ -981,7 +1075,8 @@ static void query_manufacturer_cb(const struct ofono_error *error,
 
 	ofono_dbus_signal_property_changed(conn, path,
 						OFONO_MODEM_INTERFACE,
-						"Manufacturer", DBUS_TYPE_STRING,
+						"Manufacturer",
+						DBUS_TYPE_STRING,
 						&info->manufacturer);
 
 out:
@@ -1009,7 +1104,7 @@ int ofono_devinfo_driver_register(const struct ofono_devinfo_driver *d)
 	if (d->probe == NULL)
 		return -EINVAL;
 
-	g_devinfo_drivers = g_slist_prepend(g_devinfo_drivers, (void *)d);
+	g_devinfo_drivers = g_slist_prepend(g_devinfo_drivers, (void *) d);
 
 	return 0;
 }
@@ -1018,7 +1113,7 @@ void ofono_devinfo_driver_unregister(const struct ofono_devinfo_driver *d)
 {
 	DBG("driver: %p, name: %s", d, d->name);
 
-	g_devinfo_drivers = g_slist_remove(g_devinfo_drivers, (void *)d);
+	g_devinfo_drivers = g_slist_remove(g_devinfo_drivers, (void *) d);
 }
 
 static void devinfo_remove(struct ofono_atom *atom)
@@ -1090,33 +1185,6 @@ void ofono_devinfo_set_data(struct ofono_devinfo *info, void *data)
 void *ofono_devinfo_get_data(struct ofono_devinfo *info)
 {
 	return info->driver_data;
-}
-
-/* Clients only need to free *modems
- *
- * Note: this function will never return NULL. It will abort if it
- * can't allocate memory for *modems; thus even an empty list will
- * returns a non-NULL pointer.
- */
-const char **__ofono_modem_get_list()
-{
-	GSList *l;
-	int i;
-	struct ofono_modem *modem;
-	const char **modems;
-
-	modems = g_new0(const char *, g_slist_length(g_modem_list) + 1);
-
-	for (l = g_modem_list, i = 0; l; l = l->next) {
-		modem = l->data;
-
-		if (modem->driver == NULL)
-			continue;
-
-		modems[i++] = modem->path;
-	}
-
-	return modems;
 }
 
 static void unregister_property(gpointer data)
@@ -1303,46 +1371,6 @@ struct ofono_modem *ofono_modem_create(const char *name, const char *type)
 	return modem;
 }
 
-static void emit_modems()
-{
-	DBusConnection *conn = ofono_dbus_get_connection();
-	const char **modems = __ofono_modem_get_list();
-
-	if (modems == NULL)
-		return;
-
-	ofono_dbus_signal_array_property_changed(conn,
-				OFONO_MANAGER_PATH,
-				OFONO_MANAGER_INTERFACE, "Modems",
-				DBUS_TYPE_OBJECT_PATH, &modems);
-
-	g_free(modems);
-}
-
-static void modem_sim_ready(void *user, enum ofono_sim_state new_state)
-{
-	struct ofono_modem *modem = user;
-
-	switch (new_state) {
-	case OFONO_SIM_STATE_NOT_PRESENT:
-		modem_change_state(modem, MODEM_STATE_PRE_SIM);
-		break;
-	case OFONO_SIM_STATE_INSERTED:
-		break;
-	case OFONO_SIM_STATE_READY:
-		modem_change_state(modem, MODEM_STATE_OFFLINE);
-
-		/*
-		 * If we don't have the set_online method, also proceed
-		 * straight to the online state
-		 */
-		if (modem->driver->set_online == NULL)
-			modem_change_state(modem, MODEM_STATE_ONLINE);
-
-		break;
-	}
-}
-
 static void sim_watch(struct ofono_atom *atom,
 			enum ofono_atom_watch_condition cond, void *data)
 {
@@ -1355,8 +1383,92 @@ static void sim_watch(struct ofono_atom *atom,
 
 	modem->sim = __ofono_atom_get_data(atom);
 	modem->sim_ready_watch = ofono_sim_add_state_watch(modem->sim,
-							modem_sim_ready,
+							sim_state_watch,
 							modem, NULL);
+}
+
+void __ofono_modemwatch_init()
+{
+	g_modemwatches = __ofono_watchlist_new(g_free);
+}
+
+void __ofono_modemwatch_cleanup()
+{
+	__ofono_watchlist_free(g_modemwatches);
+}
+
+unsigned int __ofono_modemwatch_add(ofono_modemwatch_cb_t cb, void *user,
+					ofono_destroy_func destroy)
+{
+	struct ofono_watchlist_item *watch;
+
+	if (cb == NULL)
+		return 0;
+
+	watch = g_new0(struct ofono_watchlist_item, 1);
+
+	watch->notify = cb;
+	watch->destroy = destroy;
+	watch->notify_data = user;
+
+	return __ofono_watchlist_add_item(g_modemwatches, watch);
+}
+
+gboolean __ofono_modemwatch_remove(unsigned int id)
+{
+	return __ofono_watchlist_remove_item(g_modemwatches, id);
+}
+
+static void call_modemwatches(struct ofono_modem *modem, gboolean added)
+{
+	GSList *l;
+	struct ofono_watchlist_item *watch;
+	ofono_modemwatch_cb_t notify;
+
+	for (l = g_modemwatches->items; l; l = l->next) {
+		watch = l->data;
+
+		notify = watch->notify;
+		notify(modem, added, watch->notify_data);
+	}
+}
+
+static void emit_modem_added(struct ofono_modem *modem)
+{
+	DBusMessage *signal;
+	DBusMessageIter iter;
+	DBusMessageIter dict;
+	const char *path;
+
+	signal = dbus_message_new_signal(OFONO_MANAGER_PATH,
+						OFONO_MANAGER_INTERFACE,
+						"ModemAdded");
+
+	if (signal == NULL)
+		return;
+
+	dbus_message_iter_init_append(signal, &iter);
+
+	path = modem->path;
+	dbus_message_iter_append_basic(&iter, DBUS_TYPE_OBJECT_PATH, &path);
+	dbus_message_iter_open_container(&iter, DBUS_TYPE_ARRAY,
+					OFONO_PROPERTIES_ARRAY_SIGNATURE,
+					&dict);
+	__ofono_modem_append_properties(modem, &dict);
+	dbus_message_iter_close_container(&iter, &dict);
+
+	g_dbus_send_message(ofono_dbus_get_connection(), signal);
+}
+
+ofono_bool_t ofono_modem_is_registered(struct ofono_modem *modem)
+{
+	if (modem == NULL)
+		return FALSE;
+
+	if (modem->driver == NULL)
+		return FALSE;
+
+	return TRUE;
 }
 
 int ofono_modem_register(struct ofono_modem *modem)
@@ -1389,9 +1501,10 @@ int ofono_modem_register(struct ofono_modem *modem)
 	if (modem->driver == NULL)
 		return -ENODEV;
 
-	if (!g_dbus_register_interface(conn, modem->path, OFONO_MODEM_INTERFACE,
-				modem_methods, modem_signals, NULL,
-				modem, NULL)) {
+	if (!g_dbus_register_interface(conn, modem->path,
+					OFONO_MODEM_INTERFACE,
+					modem_methods, modem_signals, NULL,
+					modem, NULL)) {
 		ofono_error("Modem register failed on path %s", modem->path);
 
 		if (modem->driver->remove)
@@ -1406,14 +1519,26 @@ int ofono_modem_register(struct ofono_modem *modem)
 	modem->driver_type = NULL;
 
 	modem->atom_watches = __ofono_watchlist_new(g_free);
+	modem->online_watches = __ofono_watchlist_new(g_free);
 
-	emit_modems();
+	emit_modem_added(modem);
+	call_modemwatches(modem, TRUE);
 
 	modem->sim_watch = __ofono_modem_add_atom_watch(modem,
 					OFONO_ATOM_TYPE_SIM,
 					sim_watch, modem, NULL);
 
 	return 0;
+}
+
+static void emit_modem_removed(struct ofono_modem *modem)
+{
+	DBusConnection *conn = ofono_dbus_get_connection();
+	const char *path = modem->path;
+
+	g_dbus_emit_signal(conn, OFONO_MANAGER_PATH, OFONO_MANAGER_INTERFACE,
+				"ModemRemoved", DBUS_TYPE_OBJECT_PATH, &path,
+				DBUS_TYPE_INVALID);
 }
 
 static void modem_unregister(struct ofono_modem *modem)
@@ -1425,6 +1550,9 @@ static void modem_unregister(struct ofono_modem *modem)
 
 	__ofono_watchlist_free(modem->atom_watches);
 	modem->atom_watches = NULL;
+
+	__ofono_watchlist_free(modem->online_watches);
+	modem->online_watches = NULL;
 
 	modem->sim_watch = 0;
 	modem->sim_ready_watch = 0;
@@ -1462,7 +1590,8 @@ static void modem_unregister(struct ofono_modem *modem)
 
 	modem->driver = NULL;
 
-	emit_modems();
+	emit_modem_removed(modem);
+	call_modemwatches(modem, FALSE);
 }
 
 void ofono_modem_remove(struct ofono_modem *modem)
@@ -1492,7 +1621,7 @@ int ofono_modem_driver_register(const struct ofono_modem_driver *d)
 	if (d->probe == NULL)
 		return -EINVAL;
 
-	g_driver_list = g_slist_prepend(g_driver_list, (void *)d);
+	g_driver_list = g_slist_prepend(g_driver_list, (void *) d);
 
 	return 0;
 }
@@ -1504,7 +1633,7 @@ void ofono_modem_driver_unregister(const struct ofono_modem_driver *d)
 
 	DBG("driver: %p, name: %s", d, d->name);
 
-	g_driver_list = g_slist_remove(g_driver_list, (void *)d);
+	g_driver_list = g_slist_remove(g_driver_list, (void *) d);
 
 	for (l = g_modem_list; l; l = l->next) {
 		modem = l->data;
@@ -1538,4 +1667,15 @@ void __ofono_modem_shutdown()
 
 	if (modems_remaining == 0)
 		__ofono_exit();
+}
+
+void __ofono_modem_foreach(ofono_modem_foreach_func func, void *userdata)
+{
+	struct ofono_modem *modem;
+	GSList *l;
+
+	for (l = g_modem_list; l; l = l->next) {
+		modem = l->data;
+		func(modem, userdata);
+	}
 }

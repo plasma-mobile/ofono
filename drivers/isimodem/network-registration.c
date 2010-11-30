@@ -1,23 +1,21 @@
 /*
- * This file is part of oFono - Open Source Telephony
  *
- * Copyright (C) 2009 Nokia Corporation and/or its subsidiary(-ies).
+ *  oFono - Open Source Telephony
  *
- * Contact: Aki Niemi <aki.niemi@nokia.com>
+ *  Copyright (C) 2009-2010 Nokia Corporation and/or its subsidiary(-ies).
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * version 2 as published by the Free Software Foundation.
+ *  This program is free software; you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License version 2 as
+ *  published by the Free Software Foundation.
  *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
- * 02110-1301 USA
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program; if not, write to the Free Software
+ *  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
 
@@ -257,7 +255,7 @@ static void isi_registration_status(struct ofono_netreg *netreg,
 		NET_REG_STATUS_GET_REQ
 	};
 
-	if (!cbd)
+	if (!cbd || !nd)
 		goto error;
 
 	if (g_isi_request_make(nd->client, msg, sizeof(msg),
@@ -362,7 +360,7 @@ static void isi_current_operator(struct ofono_netreg *netreg,
 		0x00  /* No sub-blocks */
 	};
 
-	if (!cbd)
+	if (!cbd || !nd)
 		goto error;
 
 	if (g_isi_request_make(nd->client, msg, sizeof(msg),
@@ -484,7 +482,7 @@ static void isi_list_operators(struct ofono_netreg *netreg,
 		0x00
 	};
 
-	if (!cbd)
+	if (!cbd || !net)
 		goto error;
 
 	if (g_isi_request_make(net->client, msg, sizeof(msg),
@@ -550,7 +548,7 @@ static void isi_register_auto(struct ofono_netreg *netreg,
 		0x00  /* Index not used */
 	};
 
-	if (!cbd)
+	if (!cbd || !net)
 		goto error;
 
 	if (g_isi_request_make(net->client, msg, sizeof(msg),
@@ -623,7 +621,7 @@ static void isi_register_manual(struct ofono_netreg *netreg,
 		0x00, 0x00  /* Filler */
 	};
 
-	if (!cbd)
+	if (!cbd || !nd)
 		goto error;
 
 	if (g_isi_request_make(nd->client, msg, sizeof(msg),
@@ -868,7 +866,7 @@ static void isi_strength(struct ofono_netreg *netreg,
 		NET_CURRENT_CELL_RSSI
 	};
 
-	if (!cbd)
+	if (!cbd || !nd)
 		goto error;
 
 	if (g_isi_request_make(nd->client, msg, sizeof(msg),

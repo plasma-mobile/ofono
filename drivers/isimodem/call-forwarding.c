@@ -1,21 +1,21 @@
 /*
- * This file is part of oFono - Open Source Telephony
  *
- * Copyright (C) 2009 Nokia Corporation and/or its subsidiary(-ies).
+ *  oFono - Open Source Telephony
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * version 2 as published by the Free Software Foundation.
+ *  Copyright (C) 2009-2010 Nokia Corporation and/or its subsidiary(-ies).
  *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
+ *  This program is free software; you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License version 2 as
+ *  published by the Free Software Foundation.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
- * 02110-1301 USA
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program; if not, write to the Free Software
+ *  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
 
@@ -229,7 +229,7 @@ static void isi_registration(struct ofono_call_forwarding *cf,
 
 	DBG("forwarding type %d class %d\n", type, cls);
 
-	if (!cbd || !number->number || strlen(number->number) > 28)
+	if (!cbd || !fd || !number->number || strlen(number->number) > 28)
 		goto error;
 
 	ss_code = forw_type_to_isi_code(type);
@@ -349,7 +349,7 @@ static void isi_erasure(struct ofono_call_forwarding *cf, int type, int cls,
 
 	DBG("forwarding type %d class %d\n", type, cls);
 
-	if (!cbd)
+	if (!cbd || !fd)
 		goto error;
 
 	ss_code = forw_type_to_isi_code(type);
@@ -426,9 +426,8 @@ static gboolean query_resp_cb(GIsiClient *client,
 							&ton, &norply, &number))
 				goto error;
 
-			list.status = status & (SS_GSM_ACTIVE
-						| SS_GSM_REGISTERED
-						| SS_GSM_PROVISIONED);
+			/* As in 27.007 section 7.11 */
+			list.status = status & SS_GSM_ACTIVE;
 			list.time = norply;
 			list.phone_number.type = ton | 128;
 			strncpy(list.phone_number.number, number,
@@ -482,7 +481,7 @@ static void isi_query(struct ofono_call_forwarding *cf, int type, int cls,
 
 	DBG("forwarding type %d class %d\n", type, cls);
 
-	if (!cbd || cls != 7)
+	if (!cbd || !fd || cls != 7)
 		goto error;
 
 	ss_code = forw_type_to_isi_code(type);

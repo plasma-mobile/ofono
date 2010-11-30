@@ -1,21 +1,21 @@
 /*
- * This file is part of oFono - Open Source Telephony
  *
- * Copyright (C) 2009 Nokia Corporation and/or its subsidiary(-ies).
+ *  oFono - Open Source Telephony
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * version 2 as published by the Free Software Foundation.
+ *  Copyright (C) 2009-2010 Nokia Corporation and/or its subsidiary(-ies).
  *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
+ *  This program is free software; you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License version 2 as
+ *  published by the Free Software Foundation.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
- * 02110-1301 USA
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program; if not, write to the Free Software
+ *  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
 
@@ -128,7 +128,7 @@ static void isi_query_manufacturer(struct ofono_devinfo *info,
 		INFO_PRODUCT_MANUFACTURER
 	};
 
-	if (!cbd)
+	if (!cbd || !dev)
 		goto error;
 
 	if (g_isi_request_make(dev->client, msg, sizeof(msg),
@@ -177,7 +177,7 @@ static void isi_query_revision(struct ofono_devinfo *info,
 		0x00, 0x00, 0x00, 0x00
 	};
 
-	if (!cbd)
+	if (!cbd || !dev)
 		goto error;
 
 	if (g_isi_request_make(dev->client, msg, sizeof(msg),
@@ -201,7 +201,7 @@ static void isi_query_serial(struct ofono_devinfo *info,
 		INFO_SN_IMEI_PLAIN
 	};
 
-	if (!cbd)
+	if (!cbd || !dev)
 		goto error;
 
 	if (g_isi_request_make(dev->client, msg, sizeof(msg),

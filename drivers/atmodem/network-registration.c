@@ -56,6 +56,7 @@ struct netreg_data {
 	int signal_min; /* min strength reported via CIND */
 	int signal_max; /* max strength reported via CIND */
 	int tech;
+	struct ofono_network_time time;
 	unsigned int vendor;
 };
 
@@ -220,8 +221,7 @@ static void at_registration_status(struct ofono_netreg *netreg,
 		return;
 
 error:
-	if (cbd)
-		g_free(cbd);
+	g_free(cbd);
 
 	CALLBACK_WITH_FAILURE(cb, -1, -1, -1, -1, data);
 }
@@ -354,19 +354,30 @@ static void at_current_operator(struct ofono_netreg *netreg,
 
 	cbd->user = netreg;
 
-	ok = g_at_chat_send(nd->chat, "AT+COPS=3,2", none_prefix,
-				NULL, NULL, NULL);
+	/* Nokia modems have a broken return value for the string
+	 * returned for the numeric value. It misses a " at the end.
+	 * Trying to read this will stall the parser. So skip it. */
+	if (nd->vendor == OFONO_VENDOR_NOKIA) {
+		ok = g_at_chat_send(nd->chat, "AT+COPS=3,0", none_prefix,
+							NULL, NULL, NULL);
 
-	if (ok)
-		ok = g_at_chat_send(nd->chat, "AT+COPS?", cops_prefix,
-					cops_numeric_cb, cbd, NULL);
+		if (ok)
+			ok = g_at_chat_send(nd->chat, "AT+COPS?", cops_prefix,
+							cops_cb, cbd, NULL);
+	} else {
+		ok = g_at_chat_send(nd->chat, "AT+COPS=3,2", none_prefix,
+							NULL, NULL, NULL);
+
+		if (ok)
+			ok = g_at_chat_send(nd->chat, "AT+COPS?", cops_prefix,
+						cops_numeric_cb, cbd, NULL);
+	}
 
 	if (ok)
 		return;
 
 error:
-	if (cbd)
-		g_free(cbd);
+	g_free(cbd);
 
 	CALLBACK_WITH_FAILURE(cb, NULL, data);
 }
@@ -407,7 +418,7 @@ static void cops_list_cb(gboolean ok, GAtResult *result, gpointer user_data)
 	g_at_result_iter_init(&iter, result);
 
 	while (g_at_result_iter_next(&iter, "+COPS:")) {
-		int status, tech;
+		int status, tech, plmn;
 		const char *l, *s, *n;
 		gboolean have_long = FALSE;
 
@@ -448,6 +459,9 @@ static void cops_list_cb(gboolean ok, GAtResult *result, gpointer user_data)
 
 			list[num].tech = tech;
 
+			if (!g_at_result_iter_next_number(&iter, &plmn))
+				plmn = 0;
+
 			if (!g_at_result_iter_close_list(&iter))
 				break;
 
@@ -486,8 +500,7 @@ static void at_list_operators(struct ofono_netreg *netreg,
 		return;
 
 error:
-	if (cbd)
-		g_free(cbd);
+	g_free(cbd);
 
 	CALLBACK_WITH_FAILURE(cb, 0, NULL, data);
 }
@@ -517,8 +530,7 @@ static void at_register_auto(struct ofono_netreg *netreg,
 		return;
 
 error:
-	if (cbd)
-		g_free(cbd);
+	g_free(cbd);
 
 	CALLBACK_WITH_FAILURE(cb, data);
 }
@@ -541,8 +553,7 @@ static void at_register_manual(struct ofono_netreg *netreg,
 		return;
 
 error:
-	if (cbd)
-		g_free(cbd);
+	g_free(cbd);
 
 	CALLBACK_WITH_FAILURE(cb, data);
 }
@@ -561,8 +572,7 @@ static void at_deregister(struct ofono_netreg *netreg,
 		return;
 
 error:
-	if (cbd)
-		g_free(cbd);
+	g_free(cbd);
 
 	CALLBACK_WITH_FAILURE(cb, data);
 }
@@ -621,6 +631,47 @@ static void option_osigq_notify(GAtResult *result, gpointer user_data)
 				at_util_convert_signal_strength(strength));
 }
 
+static void ifx_xhomezr_notify(GAtResult *result, gpointer user_data)
+{
+	//struct ofono_netreg *netreg = user_data;
+	const char *label;
+	GAtResultIter iter;
+
+	g_at_result_iter_init(&iter, result);
+
+	if (!g_at_result_iter_next(&iter, "+XHOMEZR:"))
+		return;
+
+	if (!g_at_result_iter_next_string(&iter, &label))
+		return;
+
+	ofono_info("Home zone: %s", label);
+}
+
+static void ifx_xciev_notify(GAtResult *result, gpointer user_data)
+{
+	struct ofono_netreg *netreg = user_data;
+	int strength, ind;
+	GAtResultIter iter;
+
+	g_at_result_iter_init(&iter, result);
+
+	if (!g_at_result_iter_next(&iter, "+XCIEV:"))
+		return;
+
+	if (!g_at_result_iter_next_number(&iter, &ind))
+		return;
+
+	if (ind == 0)
+		strength = 0;
+	else if (ind == 7)
+		strength = 100;
+	else
+		strength = (ind * 15);
+
+	ofono_netreg_strength_notify(netreg, ind);
+}
+
 static void ciev_notify(GAtResult *result, gpointer user_data)
 {
 	struct ofono_netreg *netreg = user_data;
@@ -644,6 +695,79 @@ static void ciev_notify(GAtResult *result, gpointer user_data)
 
 	strength = (strength * 100) / (nd->signal_max - nd->signal_min);
 	ofono_netreg_strength_notify(netreg, strength);
+}
+
+static void ctzv_notify(GAtResult *result, gpointer user_data)
+{
+	//struct ofono_netreg *netreg = user_data;
+	//struct netreg_data *nd = ofono_netreg_get_data(netreg);
+	const char *tz;
+	GAtResultIter iter;
+
+	g_at_result_iter_init(&iter, result);
+
+	if (!g_at_result_iter_next(&iter, "+CTZV:"))
+		return;
+
+	if (!g_at_result_iter_next_unquoted_string(&iter, &tz))
+		return;
+
+	DBG("tz %s", tz);
+}
+
+static void ifx_ctzv_notify(GAtResult *result, gpointer user_data)
+{
+	struct ofono_netreg *netreg = user_data;
+	struct netreg_data *nd = ofono_netreg_get_data(netreg);
+	int year, mon, mday, hour, min, sec;
+	const char *tz, *time;
+	GAtResultIter iter;
+
+	g_at_result_iter_init(&iter, result);
+
+	if (!g_at_result_iter_next(&iter, "+CTZV:"))
+		return;
+
+	if (!g_at_result_iter_next_unquoted_string(&iter, &tz))
+		return;
+
+	if (!g_at_result_iter_next_string(&iter, &time))
+		return;
+
+	DBG("tz %s time %s", tz, time);
+
+	if (sscanf(time, "%u/%u/%u,%u:%u:%u", &year, &mon, &mday,
+						&hour, &min, &sec) != 6)
+		return;
+
+	nd->time.sec = sec;
+	nd->time.min = min;
+	nd->time.hour = hour;
+	nd->time.mday = mday;
+	nd->time.mon = mon;
+	nd->time.year = 2000 + year;
+}
+
+static void ifx_ctzdst_notify(GAtResult *result, gpointer user_data)
+{
+	struct ofono_netreg *netreg = user_data;
+	struct netreg_data *nd = ofono_netreg_get_data(netreg);
+	int dst;
+	GAtResultIter iter;
+
+	g_at_result_iter_init(&iter, result);
+
+	if (!g_at_result_iter_next(&iter, "+CTZDST:"))
+		return;
+
+	if (!g_at_result_iter_next_number(&iter, &dst))
+		return;
+
+	DBG("dst %d", dst);
+
+	nd->time.dst = dst;
+
+	ofono_netreg_time_notify(netreg, &nd->time);
 }
 
 static void cind_cb(gboolean ok, GAtResult *result, gpointer user_data)
@@ -758,10 +882,58 @@ static void at_signal_strength(struct ofono_netreg *netreg,
 	}
 
 error:
-	if (cbd)
-		g_free(cbd);
+	g_free(cbd);
 
 	CALLBACK_WITH_FAILURE(cb, -1, data);
+}
+
+static void mbm_etzv_notify(GAtResult *result, gpointer user_data)
+{
+	struct ofono_netreg *netreg = user_data;
+	struct netreg_data *nd = ofono_netreg_get_data(netreg);
+	int year, mon, mday, hour, min, sec;
+	const char *tz, *time, *timestamp;
+	GAtResultIter iter;
+
+	g_at_result_iter_init(&iter, result);
+
+	if (g_at_result_iter_next(&iter, "*ETZV:") == FALSE)
+		return;
+
+	if (g_at_result_iter_next_string(&iter, &tz) == FALSE)
+		return;
+
+	if (g_at_result_iter_next_string(&iter, &time) == FALSE)
+		time = NULL;
+
+	if (g_at_result_iter_next_string(&iter, &timestamp) == FALSE)
+		timestamp = NULL;
+
+	DBG("tz %s time %s timestamp %s", tz, time, timestamp);
+
+	if (time == NULL) {
+		year = -1;
+		mon = -1;
+		mday = -1;
+		hour = -1;
+		min = -1;
+		sec = -1;
+	} else {
+		if (sscanf(time, "%u/%u/%u,%u:%u:%u", &year, &mon, &mday,
+						&hour, &min, &sec) != 6)
+		return;
+	}
+
+	nd->time.utcoff = atoi(tz) * 15 * 60;
+
+	nd->time.sec = sec;
+	nd->time.min = min;
+	nd->time.hour = hour;
+	nd->time.mday = mday;
+	nd->time.mon = mon;
+	nd->time.year = year;
+
+	ofono_netreg_time_notify(netreg, &nd->time);
 }
 
 static void mbm_erinfo_notify(GAtResult *result, gpointer user_data)
@@ -961,7 +1133,6 @@ error:
 	ofono_netreg_remove(netreg);
 }
 
-
 static void at_creg_set_cb(gboolean ok, GAtResult *result, gpointer user_data)
 {
 	struct ofono_netreg *netreg = user_data;
@@ -996,14 +1167,36 @@ static void at_creg_set_cb(gboolean ok, GAtResult *result, gpointer user_data)
 				NULL, NULL, NULL);
 		g_at_chat_send(nd->chat, "AT_OSQI?", none_prefix,
 				NULL, NULL, NULL);
+
+		/* Register for network time update reports */
+		g_at_chat_register(nd->chat, "+CTZV:", ctzv_notify,
+						FALSE, netreg, NULL);
+		g_at_chat_send(nd->chat, "AT+CTZR=1", none_prefix,
+						NULL, NULL, NULL);
 		break;
 	case OFONO_VENDOR_MBM:
+		/* Enable network registration updates */
+		g_at_chat_send(nd->chat, "AT*E2REG=1", none_prefix,
+						NULL, NULL, NULL);
+		g_at_chat_send(nd->chat, "AT*EREG=2", none_prefix,
+						NULL, NULL, NULL);
+		g_at_chat_send(nd->chat, "AT*EPSB=1", none_prefix,
+						NULL, NULL, NULL);
+
+		/* Register for network technology updates */
 		g_at_chat_send(nd->chat, "AT*ERINFO=1", none_prefix,
-				NULL, NULL, NULL);
+						NULL, NULL, NULL);
 		g_at_chat_register(nd->chat, "*ERINFO:", mbm_erinfo_notify,
-					FALSE, netreg, NULL);
+						FALSE, netreg, NULL);
+
+		/* Register for network time update reports */
+		g_at_chat_register(nd->chat, "*ETZV:", mbm_etzv_notify,
+						FALSE, netreg, NULL);
+		g_at_chat_send(nd->chat, "AT*ETZR=2", none_prefix,
+						NULL, NULL, NULL);
+
 		g_at_chat_send(nd->chat, "AT+CIND=?", cind_prefix,
-				cind_support_cb, netreg, NULL);
+					cind_support_cb, netreg, NULL);
 		return;
 	case OFONO_VENDOR_NOVATEL:
 		/*
@@ -1017,6 +1210,31 @@ static void at_creg_set_cb(gboolean ok, GAtResult *result, gpointer user_data)
 	case OFONO_VENDOR_HUAWEI:
 		g_at_chat_register(nd->chat, "^RSSI:", huawei_rssi_notify,
 					FALSE, netreg, NULL);
+		break;
+	case OFONO_VENDOR_IFX:
+		/* Register for specific signal strength reports */
+		g_at_chat_register(nd->chat, "+XCIEV:", ifx_xciev_notify,
+						FALSE, netreg, NULL);
+		g_at_chat_send(nd->chat, "AT+XMER=1", none_prefix,
+						NULL, NULL, NULL);
+
+		/* Register for home zone reports */
+		g_at_chat_register(nd->chat, "+XHOMEZR:", ifx_xhomezr_notify,
+						FALSE, netreg, NULL);
+		g_at_chat_send(nd->chat, "AT+XHOMEZR=1", none_prefix,
+						NULL, NULL, NULL);
+
+		/* Register for network time update reports */
+		g_at_chat_register(nd->chat, "+CTZV:", ifx_ctzv_notify,
+						FALSE, netreg, NULL);
+		g_at_chat_register(nd->chat, "+CTZDST:", ifx_ctzdst_notify,
+						FALSE, netreg, NULL);
+		g_at_chat_send(nd->chat, "AT+CTZR=1", none_prefix,
+						NULL, NULL, NULL);
+		break;
+	case OFONO_VENDOR_ZTE:
+	case OFONO_VENDOR_NOKIA:
+		/* Signal strength reporting via CIND is not supported */
 		break;
 	default:
 		g_at_chat_send(nd->chat, "AT+CIND=?", cind_prefix,
@@ -1083,12 +1301,20 @@ static int at_netreg_probe(struct ofono_netreg *netreg, unsigned int vendor,
 
 	nd = g_new0(struct netreg_data, 1);
 
-	nd->chat = chat;
+	nd->chat = g_at_chat_clone(chat);
 	nd->vendor = vendor;
 	nd->tech = -1;
+	nd->time.sec = -1;
+	nd->time.min = -1;
+	nd->time.hour = -1;
+	nd->time.mday = -1;
+	nd->time.mon = -1;
+	nd->time.year = -1;
+	nd->time.dst = 0;
+	nd->time.utcoff = 0;
 	ofono_netreg_set_data(netreg, nd);
 
-	g_at_chat_send(chat, "AT+CREG=?", creg_prefix,
+	g_at_chat_send(nd->chat, "AT+CREG=?", creg_prefix,
 			at_creg_test_cb, netreg, NULL);
 
 	return 0;
@@ -1100,6 +1326,7 @@ static void at_netreg_remove(struct ofono_netreg *netreg)
 
 	ofono_netreg_set_data(netreg, NULL);
 
+	g_at_chat_unref(nd->chat);
 	g_free(nd);
 }
 

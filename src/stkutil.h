@@ -237,6 +237,7 @@ enum stk_result_type {
 	STK_RESULT_TYPE_GO_BACK =			0x11,
 	STK_RESULT_TYPE_NO_RESPONSE =			0x12,
 	STK_RESULT_TYPE_HELP_REQUESTED =		0x13,
+	STK_RESULT_TYPE_USSD_OR_SS_USER_TERMINATION =	0x14,
 
 	/* 0x20 to 0x2F are used to indicate that SIM should retry */
 	STK_RESULT_TYPE_TERMINAL_BUSY =			0x20,
@@ -253,12 +254,35 @@ enum stk_result_type {
 	STK_RESULT_TYPE_COMMAND_NOT_UNDERSTOOD =	0x31,
 	STK_RESULT_TYPE_DATA_NOT_UNDERSTOOD =		0x32,
 	STK_RESULT_TYPE_COMMAND_ID_UNKNOWN =		0x33,
+	STK_RESULT_TYPE_SS_RETURN_ERROR =		0x34,
+	STK_RESULT_TYPE_SMS_RP_ERROR =			0x35,
 	STK_RESULT_TYPE_MINIMUM_NOT_MET =		0x36,
+	STK_RESULT_TYPE_USSD_RETURN_ERROR =		0x37,
 	STK_RESULT_TYPE_CALL_CONTROL_PERMANENT =	0x39,
 	STK_RESULT_TYPE_BIP_ERROR =			0x3A,
 	STK_RESULT_TYPE_ACCESS_TECHNOLOGY_ERROR =	0x3B,
 	STK_RESULT_TYPE_FRAMES_ERROR =			0x3C,
 	STK_RESULT_TYPE_MMS_ERROR =			0x3D,
+};
+
+/* Defined according to TS 102.223 Section 8.12.2 */
+enum stk_result_addnl_me_pb {
+	STK_RESULT_ADDNL_ME_PB_NO_SPECIFIC_CAUSE =	0x00,
+	STK_RESULT_ADDNL_ME_PB_SCREEN_BUSY =		0x01,
+	STK_RESULT_ADDNL_ME_PB_BUSY_ON_CALL =		0x02,
+	STK_RESULT_ADDNL_ME_PB_SS_BUSY =		0x03,
+	STK_RESULT_ADDNL_ME_PB_NO_SERVICE =		0x04,
+	STK_RESULT_ADDNL_ME_PB_NO_ACCESS =		0x05,
+	STK_RESULT_ADDNL_ME_PB_NO_RADIO_RESOURCE =	0x06,
+	STK_RESULT_ADDNL_ME_PB_NOT_IN_SPEECH_CALL =	0x07,
+	STK_RESULT_ADDNL_ME_PB_USSD_BUSY =		0x08,
+	STK_RESULT_ADDNL_ME_PB_BUSY_ON_SEND_DTMF =	0x09,
+	STK_RESULT_ADDNL_ME_PB_NO_NAA_ACTIVE =		0x0A
+};
+
+/* Defined according to TS 31.111 Section 8.12.4 */
+enum stk_result_addnl_ss_pb {
+	STK_RESULT_ADDNL_SS_PB_NO_SPECIFIC_CAUSE =	0x00
 };
 
 enum stk_tone_type {
@@ -553,8 +577,8 @@ enum stk_rejection_cause_code {
 };
 
 enum stk_me_status {
-	STK_ME_STATUS_IDLE = 		0x00,
-	STK_ME_STATUS_NOT_IDLE = 	0x01
+	STK_ME_STATUS_IDLE =		0x00,
+	STK_ME_STATUS_NOT_IDLE =	0x01
 };
 
 enum stk_img_scheme {
@@ -584,8 +608,8 @@ struct stk_address {
  * and a maximum length of 23 octets"
  *
  * According to TS 31.102 Section 4.4.2.4: "The subaddress data contains
- * information as defined for this purpose in TS 24.008 [9]. All information
- * defined in TS 24.008, except the information element identifier, shall be
+ * information as defined for this purpose in TS 24.008 [9]. All information
+ * defined in TS 24.008, except the information element identifier, shall be
  * stored in the USIM. The length of this subaddress data can be up to 22
  * bytes."
  */
@@ -600,7 +624,7 @@ struct stk_subaddress {
  *
  * According to 24.008 Section 10.5.4.5 "The bearer capability is a type 4
  * information element with a minimum length of 3 octets and a maximum length
- * of 16 octets."
+ * of 16 octets."
  *
  * According to TS 31.102 Section 4.2.38 the CCP length is 15 bytes.
  *
@@ -661,7 +685,8 @@ struct stk_ussd_string {
 	int len;
 };
 
-/* Define the struct of single file in TS102.223 Section 8.18.
+/*
+ * Define the struct of single file in TS102.223 Section 8.18.
  * According to TS 11.11 Section 6.2, each file id has two bytes, and the
  * maximum Dedicated File level is 2. So the maximum size of file is 8, which
  * contains two bytes of Master File, 2 bytes of 1st level Dedicated File,
@@ -852,7 +877,7 @@ struct stk_card_reader_id {
 struct stk_other_address {
 	union {
 		/* Network Byte Order */
-		uint32_t ipv4;
+		guint32 ipv4;
 		unsigned char ipv6[16];
 	} addr;
 	enum stk_address_type type;
@@ -1374,6 +1399,13 @@ struct stk_answer_text {
 	 */
 };
 
+struct stk_ussd_text {
+	ofono_bool_t has_text;
+	const unsigned char *text;
+	int dcs;
+	int len;
+};
+
 struct stk_response_get_inkey {
 	struct stk_answer_text text;
 	struct stk_duration duration;
@@ -1445,6 +1477,10 @@ struct stk_response_run_at_command {
 	const char *at_response;
 };
 
+struct stk_response_send_ussd {
+	struct stk_ussd_text text;
+};
+
 struct stk_response {
 	unsigned char number;
 	unsigned char type;
@@ -1474,6 +1510,7 @@ struct stk_response {
 		struct stk_response_generic send_dtmf;
 		struct stk_response_generic language_notification;
 		struct stk_response_generic launch_browser;
+		struct stk_response_send_ussd send_ussd;
 	};
 
 	void (*destructor)(struct stk_response *response);

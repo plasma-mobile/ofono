@@ -116,8 +116,7 @@ static void at_csca_set(struct ofono_sms *sms,
 		return;
 
 error:
-	if (cbd)
-		g_free(cbd);
+	g_free(cbd);
 
 	CALLBACK_WITH_FAILURE(cb, user_data);
 }
@@ -182,8 +181,7 @@ static void at_csca_query(struct ofono_sms *sms, ofono_sms_sca_query_cb_t cb,
 		return;
 
 error:
-	if (cbd)
-		g_free(cbd);
+	g_free(cbd);
 
 	CALLBACK_WITH_FAILURE(cb, NULL, user_data);
 }
@@ -246,8 +244,7 @@ static void at_cmgs(struct ofono_sms *sms, unsigned char *pdu, int pdu_len,
 		return;
 
 error:
-	if (cbd)
-		g_free(cbd);
+	g_free(cbd);
 
 	CALLBACK_WITH_FAILURE(cb, -1, user_data);
 }
@@ -280,8 +277,7 @@ static void at_cgsms_set(struct ofono_sms *sms, int bearer,
 		return;
 
 error:
-	if (cbd)
-		g_free(cbd);
+	g_free(cbd);
 
 	CALLBACK_WITH_FAILURE(cb, user_data);
 }
@@ -331,8 +327,7 @@ static void at_cgsms_query(struct ofono_sms *sms,
 		return;
 
 error:
-	if (cbd)
-		g_free(cbd);
+	g_free(cbd);
 
 	CALLBACK_WITH_FAILURE(cb, -1, user_data);
 }
@@ -369,6 +364,8 @@ static inline void at_ack_delivery(struct ofono_sms *sms)
 {
 	struct sms_data *data = ofono_sms_get_data(sms);
 	char buf[256];
+
+	DBG("");
 
 	/* We must acknowledge the PDU using CNMA */
 	if (data->cnma_ack_pdu)
@@ -444,6 +441,8 @@ static void at_cmgr_notify(GAtResult *result, gpointer user_data)
 	unsigned char pdu[176];
 	long pdu_len;
 	int tpdu_len;
+
+	DBG("");
 
 	g_at_result_iter_init(&iter, result);
 
@@ -593,6 +592,8 @@ static void at_cmgl_done(struct ofono_sms *sms)
 {
 	struct sms_data *data = ofono_sms_get_data(sms);
 
+	DBG("");
+
 	if (data->incoming == AT_UTIL_SMS_STORE_MT &&
 			data->store == AT_UTIL_SMS_STORE_ME) {
 		at_cmgl_set_cpms(sms, AT_UTIL_SMS_STORE_SM);
@@ -625,6 +626,8 @@ static void at_cmgl_notify(GAtResult *result, gpointer user_data)
 	int index;
 	int status;
 	char buf[16];
+
+	DBG("");
 
 	g_at_result_iter_init(&iter, result);
 
@@ -793,6 +796,8 @@ static gboolean build_cnmi_string(char *buf, int *cnmi_opts,
 	const char *mode;
 	int len = sprintf(buf, "AT+CNMI=");
 
+	DBG("");
+
 	if (data->vendor == OFONO_VENDOR_QUALCOMM_MSM ||
 			data->vendor == OFONO_VENDOR_HUAWEI ||
 			data->vendor == OFONO_VENDOR_NOVATEL)
@@ -846,6 +851,8 @@ static void construct_ack_pdu(struct sms_data *d)
 	unsigned char pdu[164];
 	int len;
 	int tpdu_len;
+
+	DBG("");
 
 	memset(&ackpdu, 0, sizeof(ackpdu));
 
@@ -910,8 +917,9 @@ static void at_cnmi_query_cb(gboolean ok, GAtResult *result, gpointer user_data)
 		supported = TRUE;
 
 	/* support for ack pdu is not working */
-	if (data->vendor == OFONO_VENDOR_NOVATEL ||
+	if (data->vendor == OFONO_VENDOR_IFX ||
 			data->vendor == OFONO_VENDOR_HUAWEI ||
+			data->vendor == OFONO_VENDOR_NOVATEL ||
 			data->vendor == OFONO_VENDOR_OPTION_HSO)
 		goto out;
 
@@ -1212,12 +1220,12 @@ static int at_sms_probe(struct ofono_sms *sms, unsigned int vendor,
 	struct sms_data *data;
 
 	data = g_new0(struct sms_data, 1);
-	data->chat = chat;
+	data->chat = g_at_chat_clone(chat);
 	data->vendor = vendor;
 
 	ofono_sms_set_data(sms, data);
 
-	g_at_chat_send(chat, "AT+CSMS=?", csms_prefix,
+	g_at_chat_send(data->chat, "AT+CSMS=?", csms_prefix,
 			at_csms_query_cb, sms, NULL);
 
 	return 0;
@@ -1227,12 +1235,12 @@ static void at_sms_remove(struct ofono_sms *sms)
 {
 	struct sms_data *data = ofono_sms_get_data(sms);
 
-	if (data->cnma_ack_pdu)
-		g_free(data->cnma_ack_pdu);
+	g_free(data->cnma_ack_pdu);
 
 	if (data->timeout_source > 0)
 		g_source_remove(data->timeout_source);
 
+	g_at_chat_unref(data->chat);
 	g_free(data);
 }
 

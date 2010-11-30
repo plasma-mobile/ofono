@@ -82,6 +82,7 @@ typedef void (*ofono_sim_file_info_cb_t)(const struct ofono_error *error,
 					enum ofono_sim_file_structure structure,
 					int recordlength,
 					const unsigned char access[3],
+					unsigned char file_status,
 					void *data);
 
 typedef void (*ofono_sim_read_cb_t)(const struct ofono_error *error,
@@ -94,8 +95,8 @@ typedef void (*ofono_sim_write_cb_t)(const struct ofono_error *error,
 typedef void (*ofono_sim_imsi_cb_t)(const struct ofono_error *error,
 					const char *imsi, void *data);
 
-typedef void (*ofono_sim_state_event_notify_cb_t)(void *data,
-					enum ofono_sim_state new_state);
+typedef void (*ofono_sim_state_event_cb_t)(enum ofono_sim_state new_state,
+					void *data);
 
 typedef void (*ofono_sim_file_read_cb_t)(int ok, int total_length, int record,
 					const unsigned char *data,
@@ -178,8 +179,8 @@ enum ofono_sim_cphs_phase ofono_sim_get_cphs_phase(struct ofono_sim *sim);
 const unsigned char *ofono_sim_get_cphs_service_table(struct ofono_sim *sim);
 
 unsigned int ofono_sim_add_state_watch(struct ofono_sim *sim,
-				ofono_sim_state_event_notify_cb_t cb,
-				void *data, ofono_destroy_func destroy);
+					ofono_sim_state_event_cb_t cb,
+					void *data, ofono_destroy_func destroy);
 
 void ofono_sim_remove_state_watch(struct ofono_sim *sim, unsigned int id);
 
@@ -202,6 +203,10 @@ int ofono_sim_write(struct ofono_sim *sim, int id,
 			ofono_sim_file_write_cb_t cb,
 			enum ofono_sim_file_structure structure, int record,
 			const unsigned char *data, int length, void *userdata);
+
+int ofono_sim_read_bytes(struct ofono_sim *sim, int id,
+			unsigned short offset, unsigned short num_bytes,
+			ofono_sim_file_read_cb_t cb, void *data);
 #ifdef __cplusplus
 }
 #endif

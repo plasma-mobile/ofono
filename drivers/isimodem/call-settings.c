@@ -1,21 +1,21 @@
 /*
- * This file is part of oFono - Open Source Telephony
  *
- * Copyright (C) 2009 Nokia Corporation and/or its subsidiary(-ies).
+ *  oFono - Open Source Telephony
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * version 2 as published by the Free Software Foundation.
+ *  Copyright (C) 2009-2010 Nokia Corporation and/or its subsidiary(-ies).
  *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
+ *  This program is free software; you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License version 2 as
+ *  published by the Free Software Foundation.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
- * 02110-1301 USA
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program; if not, write to the Free Software
+ *  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
 
@@ -177,7 +177,7 @@ static void isi_cw_query(struct ofono_call_settings *cs, int cls,
 
 	DBG("waiting class %d\n", cls);
 
-	if (!cbd)
+	if (!cbd || !sd)
 		goto error;
 
 	if (g_isi_request_make(sd->client, msg, sizeof(msg), SS_TIMEOUT,
@@ -268,7 +268,7 @@ static void isi_cw_set(struct ofono_call_settings *cs, int mode, int cls,
 
 	DBG("waiting mode %d class %d\n", mode, cls);
 
-	if (!cbd)
+	if (!cbd || !sd)
 		goto error;
 
 	if (g_isi_request_make(sd->client, msg, sizeof(msg), SS_TIMEOUT,

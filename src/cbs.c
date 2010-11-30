@@ -173,6 +173,7 @@ static void cbs_dispatch_text(struct ofono_cbs *cbs, enum sms_class cls,
 void ofono_cbs_notify(struct ofono_cbs *cbs, const unsigned char *pdu,
 				int pdu_len)
 {
+	struct ofono_modem *modem = __ofono_atom_get_modem(cbs->atom);
 	struct cbs c;
 	enum sms_class cls;
 	gboolean udhi;
@@ -191,8 +192,21 @@ void ofono_cbs_notify(struct ofono_cbs *cbs, const unsigned char *pdu,
 	}
 
 	if (cbs_topic_in_range(c.message_identifier, cbs->efcbmid_contents)) {
+		struct ofono_atom *sim_atom;
+
+		sim_atom = __ofono_modem_find_atom(modem, OFONO_ATOM_TYPE_SIM);
+		if (!sim_atom)
+			return;
+
+		if (!__ofono_sim_service_available(
+					__ofono_atom_get_data(sim_atom),
+					SIM_UST_SERVICE_DATA_DOWNLOAD_SMS_CB,
+					SIM_SST_SERVICE_DATA_DOWNLOAD_SMS_CB))
+			return;
+
 		if (cbs->stk)
 			__ofono_cbs_sim_download(cbs->stk, &c);
+
 		return;
 	}
 
@@ -249,7 +263,8 @@ void ofono_cbs_notify(struct ofono_cbs *cbs, const unsigned char *pdu,
 		goto out;
 	}
 
-	/* 3GPP 23.041: NOTE 5:	Code 00 is intended for use by the
+	/*
+	 * 3GPP 23.041: NOTE 5:	Code 00 is intended for use by the
 	 * network operators for base station IDs.
 	 */
 	if (c.gs == CBS_GEO_SCOPE_CELL_IMMEDIATE) {
@@ -550,7 +565,7 @@ int ofono_cbs_driver_register(const struct ofono_cbs_driver *d)
 	if (d->probe == NULL)
 		return -EINVAL;
 
-	g_drivers = g_slist_prepend(g_drivers, (void *)d);
+	g_drivers = g_slist_prepend(g_drivers, (void *) d);
 
 	return 0;
 }
@@ -559,7 +574,7 @@ void ofono_cbs_driver_unregister(const struct ofono_cbs_driver *d)
 {
 	DBG("driver: %p, name: %s", d, d->name);
 
-	g_drivers = g_slist_remove(g_drivers, (void *)d);
+	g_drivers = g_slist_remove(g_drivers, (void *) d);
 }
 
 static void cbs_unregister(struct ofono_atom *atom)
@@ -573,20 +588,20 @@ static void cbs_unregister(struct ofono_atom *atom)
 	ofono_modem_remove_interface(modem, OFONO_CELL_BROADCAST_INTERFACE);
 
 	if (cbs->topics) {
-		g_slist_foreach(cbs->topics, (GFunc)g_free, NULL);
+		g_slist_foreach(cbs->topics, (GFunc) g_free, NULL);
 		g_slist_free(cbs->topics);
 		cbs->topics = NULL;
 	}
 
 	if (cbs->new_topics) {
-		g_slist_foreach(cbs->new_topics, (GFunc)g_free, NULL);
+		g_slist_foreach(cbs->new_topics, (GFunc) g_free, NULL);
 		g_slist_free(cbs->new_topics);
 		cbs->new_topics = NULL;
 	}
 
 	if (cbs->efcbmid_length) {
 		cbs->efcbmid_length = 0;
-		g_slist_foreach(cbs->efcbmid_contents, (GFunc)g_free, NULL);
+		g_slist_foreach(cbs->efcbmid_contents, (GFunc) g_free, NULL);
 		g_slist_free(cbs->efcbmid_contents);
 		cbs->efcbmid_contents = NULL;
 	}
@@ -888,8 +903,10 @@ static void cbs_got_imsi(struct ofono_cbs *cbs)
 	if (topics_str)
 		cbs->topics = cbs_extract_topic_ranges(topics_str);
 
-	/* If stored value is invalid or no stored value, bootstrap
-	 * topics list from SIM contents */
+	/*
+	 * If stored value is invalid or no stored value, bootstrap
+	 * topics list from SIM contents
+	 */
 	if (topics_str == NULL ||
 			(cbs->topics == NULL && topics_str[0] != '\0')) {
 		ofono_sim_read(cbs->sim, SIM_EFCBMI_FILEID,
@@ -972,7 +989,8 @@ static void cbs_location_changed(int status, int lac, int ci, int tech,
 out:
 	DBG("%d, %d, %d", plmn_changed, lac_changed, ci_changed);
 
-	/* In order to minimize signal transmissions we wait about X seconds
+	/*
+	 * In order to minimize signal transmissions we wait about X seconds
 	 * before reseting the base station id.  The hope is that we receive
 	 * another cell broadcast with the new base station name within
 	 * that time
@@ -1018,7 +1036,8 @@ static void netreg_watch(struct ofono_atom *atom,
 	cbs->lac = ofono_netreg_get_location(cbs->netreg);
 	cbs->ci = ofono_netreg_get_cellid(cbs->netreg);
 
-	/* Clear out the cbs assembly just in case, worst case
+	/*
+	 * Clear out the cbs assembly just in case, worst case
 	 * we will receive the cell broadcasts again
 	 */
 	cbs_assembly_location_changed(cbs->assembly, TRUE, TRUE, TRUE);

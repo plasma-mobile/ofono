@@ -87,6 +87,14 @@ Properties	string LineIdentification [readonly]
 			"override category" option was not provisioned for
 			the current subscriber.
 
+		boolean Multiparty [readonly]
+
+			Contains the indication if the voice call is part
+			of a multiparty call or not.
+
+			Notifications if a call becomes part or leaves a
+			multipart call are sent.
+
 		string State [readonly]
 
 			Contains the state of the current call.  The state
@@ -106,3 +114,14 @@ Properties	string LineIdentification [readonly]
 			stamped when the call enters the "active" state.
 			Client applications can use this to infer somewhat
 			reliable call duration information.
+
+		string Information [readonly, optional]
+
+			Contains information related to the call for the
+			user.  Currently this property is set for calls
+			initiated by SIM Toolkit applications.
+
+		byte Icon [readonly, optional]
+
+			Icon identifier to be used instead of or together
+			with the text information.

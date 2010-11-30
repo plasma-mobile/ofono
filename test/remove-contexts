@@ -7,22 +7,17 @@ bus = dbus.SystemBus()
 manager = dbus.Interface(bus.get_object('org.ofono', '/'),
 						'org.ofono.Manager')
 
-properties = manager.GetProperties()
+modems = manager.GetModems()
 
-for path in properties["Modems"]:
-	modem = dbus.Interface(bus.get_object('org.ofono', path),
-							'org.ofono.Modem')
-
-	properties = modem.GetProperties()
-
-	if "org.ofono.DataConnectionManager" not in properties["Interfaces"]:
+for path, properties in modems:
+	if "org.ofono.ConnectionManager" not in properties["Interfaces"]:
 		continue
 
-	connmgr = dbus.Interface(bus.get_object('org.ofono', path),
-					'org.ofono.DataConnectionManager')
+	connman = dbus.Interface(bus.get_object('org.ofono', path),
+					'org.ofono.ConnectionManager')
 
-	properties = connmgr.GetProperties()
+	contexts = connman.GetContexts()
 
-	for path in properties["PrimaryContexts"]:
-		connmgr.RemoveContext(path)
+	for path, properties in contexts:
+		connman.RemoveContext(path)
 		print"Removed: [ %s ]" % (path)

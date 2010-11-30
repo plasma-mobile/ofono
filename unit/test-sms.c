@@ -1,21 +1,21 @@
 /*
- * oFono - GSM Telephony Stack for Linux
  *
- * Copyright (C) 2008-2010 Intel Corporation.  All rights reserved.
+ *  oFono - Open Source Telephony
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
+ *  Copyright (C) 2008-2010  Intel Corporation. All rights reserved.
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ *  This program is free software; you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License version 2 as
+ *  published by the Free Software Foundation.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program; if not, write to the Free Software
+ *  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
 
@@ -92,6 +92,57 @@ static void print_vpf(enum sms_validity_period_format vpf,
 	}
 }
 
+static void dump_details(struct sms *sms)
+{
+	if (sms->sc_addr.address[0] == '\0')
+		g_print("SMSC Address absent, default will be used\n");
+	else
+		g_print("SMSC Address number_type: %d, number_plan: %d, %s\n",
+			(int)sms->sc_addr.number_type,
+			(int)sms->sc_addr.numbering_plan, sms->sc_addr.address);
+
+	switch (sms->type) {
+	case SMS_TYPE_DELIVER:
+		g_print("Type: Deliver\n");
+
+		g_print("Originator-Address: %d, %d, %s\n",
+			(int)sms->deliver.oaddr.number_type,
+			(int)sms->deliver.oaddr.numbering_plan,
+			sms->deliver.oaddr.address);
+
+		g_print("PID: %d\n", (int)sms->deliver.pid);
+		g_print("DCS: %d\n", (int)sms->deliver.dcs);
+
+		print_scts(&sms->deliver.scts, "Timestamp");
+
+		break;
+	case SMS_TYPE_SUBMIT:
+		g_print("Type: Submit\n");
+
+		g_print("Message Reference: %u\n", (int)sms->submit.mr);
+
+		g_print("Destination-Address: %d, %d, %s\n",
+			(int)sms->submit.daddr.number_type,
+			(int)sms->submit.daddr.numbering_plan,
+			sms->submit.daddr.address);
+
+		g_print("PID: %d\n", (int)sms->submit.pid);
+		g_print("DCS: %d\n", (int)sms->submit.dcs);
+
+		print_vpf(sms->submit.vpf, &sms->submit.vp);
+
+		break;
+	case SMS_TYPE_STATUS_REPORT:
+		break;
+	case SMS_TYPE_COMMAND:
+	case SMS_TYPE_DELIVER_REPORT_ACK:
+	case SMS_TYPE_DELIVER_REPORT_ERROR:
+	case SMS_TYPE_SUBMIT_REPORT_ACK:
+	case SMS_TYPE_SUBMIT_REPORT_ERROR:
+		break;
+	}
+}
+
 static void test_simple_deliver()
 {
 	struct sms sms;
@@ -114,23 +165,8 @@ static void test_simple_deliver()
 	g_assert(ret);
 	g_assert(sms.type == SMS_TYPE_DELIVER);
 
-	if (g_test_verbose()) {
-		g_print("SMSC Address number_type: %d, number_plan: %d, %s\n",
-			(int)sms.sc_addr.number_type,
-			(int)sms.sc_addr.numbering_plan, sms.sc_addr.address);
-
-		g_print("SMS type: %d\n", (int)sms.type);
-
-		g_print("Originator-Address: %d, %d, %s\n",
-			(int)sms.deliver.oaddr.number_type,
-			(int)sms.deliver.oaddr.numbering_plan,
-			sms.deliver.oaddr.address);
-
-		g_print("PID: %d\n", (int)sms.deliver.pid);
-		g_print("DCS: %d\n", (int)sms.deliver.dcs);
-
-		print_scts(&sms.deliver.scts, "Timezone");
-	}
+	if (g_test_verbose())
+		dump_details(&sms);
 
 	g_assert(sms.sc_addr.number_type == SMS_NUMBER_TYPE_INTERNATIONAL);
 	g_assert(sms.sc_addr.numbering_plan == SMS_NUMBERING_PLAN_ISDN);
@@ -200,23 +236,8 @@ static void test_alnum_sender()
 	g_assert(ret);
 	g_assert(sms.type == SMS_TYPE_DELIVER);
 
-	if (g_test_verbose()) {
-		g_print("SMSC Address number_type: %d, number_plan: %d, %s\n",
-			(int)sms.sc_addr.number_type,
-			(int)sms.sc_addr.numbering_plan, sms.sc_addr.address);
-
-		g_print("SMS type: %d\n", (int)sms.type);
-
-		g_print("Originator-Address: %d, %d, %s\n",
-			(int)sms.deliver.oaddr.number_type,
-			(int)sms.deliver.oaddr.numbering_plan,
-			sms.deliver.oaddr.address);
-
-		g_print("PID: %d\n", (int)sms.deliver.pid);
-		g_print("DCS: %d\n", (int)sms.deliver.dcs);
-
-		print_scts(&sms.deliver.scts, "Timestamp");
-	}
+	if (g_test_verbose())
+		dump_details(&sms);
 
 	g_assert(sms.sc_addr.number_type == SMS_NUMBER_TYPE_INTERNATIONAL);
 	g_assert(sms.sc_addr.numbering_plan == SMS_NUMBERING_PLAN_ISDN);
@@ -263,6 +284,7 @@ static void test_alnum_sender()
 
 	g_free(utf8);
 }
+
 static void test_deliver_encode()
 {
 	struct sms sms;
@@ -361,30 +383,8 @@ static void test_simple_submit()
 	g_assert(ret);
 	g_assert(sms.type == SMS_TYPE_SUBMIT);
 
-	if (g_test_verbose()) {
-		if (sms.sc_addr.address[0] == '\0')
-			g_print("SMSC Address absent, default will be used\n");
-		else
-			g_print("SMSC Address number_type: %d,"
-				" number_plan: %d, %s\n",
-				(int)sms.sc_addr.number_type,
-				(int)sms.sc_addr.numbering_plan,
-				sms.sc_addr.address);
-
-		g_print("SMS type: %d\n", (int)sms.type);
-
-		g_print("Message Reference: %u\n", (int)sms.submit.mr);
-
-		g_print("Destination-Address: %d, %d, %s\n",
-			(int)sms.submit.daddr.number_type,
-			(int)sms.submit.daddr.numbering_plan,
-			sms.submit.daddr.address);
-
-		g_print("PID: %d\n", (int)sms.submit.pid);
-		g_print("DCS: %d\n", (int)sms.submit.dcs);
-
-		print_vpf(sms.submit.vpf, &sms.submit.vp);
-	}
+	if (g_test_verbose())
+		dump_details(&sms);
 
 	g_assert(strlen(sms.sc_addr.address) == 0);
 
@@ -623,31 +623,8 @@ static void test_ems_udh(gconstpointer data)
 	g_assert(ret);
 	g_assert(sms.type == SMS_TYPE_SUBMIT);
 
-	if (g_test_verbose()) {
-		if (sms.sc_addr.address[0] == '\0')
-			g_print("SMSC Address absent, default will be used\n");
-		else
-			g_print("SMSC Address number_type: %d,"
-				" number_plan: %d, %s\n",
-				(int)sms.sc_addr.number_type,
-				(int)sms.sc_addr.numbering_plan,
-				sms.sc_addr.address);
-
-		g_print("SMS type: %d\n", (int)sms.type);
-
-		g_print("Message Reference: %u\n", (int)sms.submit.mr);
-
-		g_print("Destination-Address: %d, %d, %s\n",
-			(int)sms.submit.daddr.number_type,
-			(int)sms.submit.daddr.numbering_plan,
-			sms.submit.daddr.address);
-
-		g_print("PID: %d\n", (int)sms.submit.pid);
-		g_print("DCS: %d\n", (int)sms.submit.dcs);
-
-		print_vpf(sms.submit.vpf, &sms.submit.vp);
-	}
-
+	if (g_test_verbose())
+		dump_details(&sms);
 	udhl = sms.submit.ud[0];
 
 	g_assert(sms.submit.udl == test->udl);
@@ -808,7 +785,7 @@ static void test_assembly()
 	if (g_test_verbose())
 		g_printf("Text:\n%s\n", utf8);
 
-	l = sms_text_prepare(utf8, ref, TRUE, NULL, FALSE);
+	l = sms_text_prepare("555", utf8, ref, TRUE, FALSE);
 	g_assert(l);
 	g_assert(g_slist_length(l) == 3);
 
@@ -838,7 +815,8 @@ static void test_prepare_7bit()
 	int encoded_tpdu_len;
 	char *encoded_pdu;
 
-	r = sms_text_prepare(test_no_fragmentation_7bit, 0, FALSE, NULL, FALSE);
+	r = sms_text_prepare("555", test_no_fragmentation_7bit, 0,
+				FALSE, FALSE);
 
 	g_assert(r != NULL);
 
@@ -890,7 +868,6 @@ struct sms_concat_data {
 	unsigned int segments;
 };
 
-
 static struct sms_concat_data shakespeare_test = {
 	.str = "Shakespeare divided his time between London and Str"
 	"atford during his career. In 1596, the year before he bought New Plac"
@@ -921,7 +898,7 @@ static void test_prepare_concat(gconstpointer data)
 	if (g_test_verbose())
 		g_print("strlen: %zd\n", strlen(test->str));
 
-	r = sms_text_prepare(test->str, 0, TRUE, NULL, FALSE);
+	r = sms_text_prepare("+15554449999", test->str, 0, TRUE, FALSE);
 	g_assert(r);
 	g_assert(g_slist_length(r) == test->segments);
 
@@ -930,7 +907,6 @@ static void test_prepare_concat(gconstpointer data)
 
 		sms = l->data;
 
-		sms_address_from_string(&sms->submit.daddr, "+15554449999");
 		sms_encode(sms, &pdu_len, &tpdu_len, pdu);
 		g_assert(pdu_len == (tpdu_len + 1));
 
@@ -997,7 +973,7 @@ static void test_limit(gunichar uni, int target_size, gboolean use_16bit)
 
 	utf8[i] = '\0';
 
-	l = sms_text_prepare(utf8, 0, use_16bit, NULL, FALSE);
+	l = sms_text_prepare("555", utf8, 0, use_16bit, FALSE);
 
 	g_assert(l);
 	g_assert(g_slist_length(l) == 255);
@@ -1010,7 +986,7 @@ static void test_limit(gunichar uni, int target_size, gboolean use_16bit)
 	memcpy(utf8 + i, utf8_char, stride);
 	utf8[i+stride] = '\0';
 
-	l = sms_text_prepare(utf8, 0, use_16bit, NULL, FALSE);
+	l = sms_text_prepare("555", utf8, 0, use_16bit, FALSE);
 
 	g_assert(l == NULL);
 	g_free(utf8);
@@ -1297,16 +1273,22 @@ static void test_sr_assembly()
 				"940A00";
 	const char *sr_pdu2 = "06050D91945152991136F00160124130640A0160124130"
 				"450A00";
+	const char *sr_pdu3 = "0606098121436587F9019012413064A0019012413045A0"
+				"00";
         struct sms sr1;
 	struct sms sr2;
+	struct sms sr3;
 	unsigned char pdu[176];
 	long pdu_len;
 	struct status_report_assembly *sra;
 	gboolean delivered;
-	unsigned int id;
 	struct sms_address addr;
+	unsigned char sha1[SMS_MSGID_LEN] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
+						10, 11, 12, 13, 14, 15,
+						16, 17, 18, 19 };
+	unsigned char id[SMS_MSGID_LEN];
 
-	/* mr 4 & mr 5 */
+	/* international address, mr 4 & mr 5 */
 
         decode_hex_own_buf(sr_pdu1, -1, &pdu_len, 0, pdu);
 	g_assert(sms_decode(pdu, pdu_len, FALSE, 26, &sr1) == TRUE);
@@ -1314,26 +1296,156 @@ static void test_sr_assembly()
 	decode_hex_own_buf(sr_pdu2, -1, &pdu_len, 0, pdu);
 	g_assert(sms_decode(pdu, pdu_len, FALSE, 26, &sr2) == TRUE);
 
-	g_print("sr1 address: %s, mr: %d\n",
+	/* national address, mr 6 */
+
+	decode_hex_own_buf(sr_pdu3, -1, &pdu_len, 0, pdu);
+	g_assert(sms_decode(pdu, pdu_len, FALSE, 24, &sr3) == TRUE);
+
+	if (g_test_verbose()) {
+		g_print("sr1 address: %s, mr: %d\n",
 			sms_address_to_string(&sr1.status_report.raddr),
 			sr1.status_report.mr);
 
-	g_print("sr2 address: %s, mr: %d\n",
+		g_print("sr2 address: %s, mr: %d\n",
 			sms_address_to_string(&sr2.status_report.raddr),
 			sr2.status_report.mr);
+
+		g_print("sr3 address: %s, mr: %d\n",
+			sms_address_to_string(&sr3.status_report.raddr),
+			sr3.status_report.mr);
+	}
 
 	sms_address_from_string(&addr, "+4915259911630");
 
 	sra = status_report_assembly_new(NULL);
-	status_report_assembly_add_fragment(sra, 42, &addr, 4, time(NULL), 2);
-	status_report_assembly_add_fragment(sra, 42, &addr, 5, time(NULL), 2);
 
-	g_assert(!status_report_assembly_report(sra, &sr1, &id, &delivered));
-	g_assert(status_report_assembly_report(sra, &sr2, &id, &delivered));
+	status_report_assembly_add_fragment(sra, sha1, &addr, 4, time(NULL), 2);
+	status_report_assembly_add_fragment(sra, sha1, &addr, 5, time(NULL), 2);
 
-	g_assert(id == 42);
+	status_report_assembly_expire(sra, time(NULL) + 40);
+	g_assert(g_hash_table_size(sra->assembly_table) == 0);
+
+	status_report_assembly_add_fragment(sra, sha1, &addr, 4, time(NULL), 2);
+	status_report_assembly_add_fragment(sra, sha1, &addr, 5, time(NULL), 2);
+
+	g_assert(!status_report_assembly_report(sra, &sr1, id, &delivered));
+	g_assert(status_report_assembly_report(sra, &sr2, id, &delivered));
+
+	g_assert(memcmp(id, sha1, SMS_MSGID_LEN) == 0);
 	g_assert(delivered == TRUE);
+
+	/*
+	 * Send sms-message in the national address-format,
+	 * but receive in the international address-format.
+	 */
+	sms_address_from_string(&addr, "9911630");
+	status_report_assembly_add_fragment(sra, sha1, &addr, 4, time(NULL), 2);
+	status_report_assembly_add_fragment(sra, sha1, &addr, 5, time(NULL), 2);
+
+	g_assert(!status_report_assembly_report(sra, &sr1, id, &delivered));
+	g_assert(status_report_assembly_report(sra, &sr2, id, &delivered));
+
+	g_assert(memcmp(id, sha1, SMS_MSGID_LEN) == 0);
+	g_assert(delivered == TRUE);
+	g_assert(g_hash_table_size(sra->assembly_table) == 0);
+
+	/*
+	 * Send sms-message in the international address-format,
+	 * but receive in the national address-format.
+	 */
+	sms_address_from_string(&addr, "+358123456789");
+	status_report_assembly_add_fragment(sra, sha1, &addr, 6, time(NULL), 1);
+
+	g_assert(status_report_assembly_report(sra, &sr3, id, &delivered));
+
+	g_assert(memcmp(id, sha1, SMS_MSGID_LEN) == 0);
+	g_assert(delivered == TRUE);
+	g_assert(g_hash_table_size(sra->assembly_table) == 0);
+
 	status_report_assembly_free(sra);
+}
+
+struct wap_push_data {
+	const char *pdu;
+	int len;
+};
+
+static struct wap_push_data wap_push_1 = {
+	.pdu = "0791947122725014440185F039F501801140311480720605040B8423F00106"
+		"246170706C69636174696F6E2F766E642E7761702E6D6D732D6D657373616"
+		"76500AF84B4868C82984F67514B4B42008D9089088045726F74696B009650"
+		"696E2D557073008A808E0240008805810303F48083687474703A2F2F65707"
+		"3332E64652F4F2F5A39495A4F00",
+	.len = 128,
+};
+
+static void test_wap_push(gconstpointer data)
+{
+	const struct wap_push_data *test = data;
+	struct sms sms;
+	unsigned char *decoded_pdu;
+	gboolean ret;
+	long pdu_len;
+	long data_len;
+	enum sms_class cls;
+	enum sms_charset charset;
+	GSList *list;
+	unsigned char *wap_push;
+	int dst_port, src_port;
+	gboolean is_8bit;
+
+	decoded_pdu = decode_hex(test->pdu, -1, &pdu_len, 0);
+
+	g_assert(decoded_pdu);
+
+	ret = sms_decode(decoded_pdu, pdu_len, FALSE, test->len, &sms);
+
+	g_free(decoded_pdu);
+
+	g_assert(ret);
+	g_assert(sms.type == SMS_TYPE_DELIVER);
+
+	if (g_test_verbose())
+		dump_details(&sms);
+
+	ret = sms_dcs_decode(sms.deliver.dcs, &cls, &charset, NULL, NULL);
+
+	g_assert(ret == TRUE);
+	g_assert(charset == SMS_CHARSET_8BIT);
+
+	g_assert(sms_extract_app_port(&sms, &dst_port, &src_port, &is_8bit));
+
+	if (g_test_verbose()) {
+		g_print("8bit: %d\n", is_8bit);
+		g_print("src: %d, dst: %d\n", src_port, dst_port);
+	}
+
+	g_assert(is_8bit == FALSE);
+	g_assert(dst_port == 2948);
+
+	list = g_slist_append(NULL, &sms);
+
+	wap_push = sms_decode_datagram(list, &data_len);
+
+	if (g_test_verbose()) {
+		int i;
+
+		g_print("data_len: %ld\n", data_len);
+
+		for (i = 0; i < data_len; i++) {
+			g_print("%02x", wap_push[i]);
+
+			if ((i % 16) == 15)
+				g_print("\n");
+		}
+
+		g_print("\n");
+	}
+
+	g_assert(wap_push);
+
+	g_free(wap_push);
+	g_slist_free(list);
 }
 
 int main(int argc, char **argv)
@@ -1384,6 +1496,9 @@ int main(int argc, char **argv)
 	g_test_add_func("/testsms/Range minimizer", test_range_minimizer);
 
 	g_test_add_func("/testsms/Status Report Assembly", test_sr_assembly);
+
+	g_test_add_data_func("/testsms/Test WAP Push 1", &wap_push_1,
+				test_wap_push);
 
 	return g_test_run();
 }

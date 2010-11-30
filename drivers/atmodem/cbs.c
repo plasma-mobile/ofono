@@ -58,6 +58,8 @@ static void at_cbm_notify(GAtResult *result, gpointer user_data)
 	unsigned char pdu[88];
 	long hexpdulen;
 
+	DBG("");
+
 	g_at_result_iter_init(&iter, result);
 
 	if (!g_at_result_iter_next(&iter, "+CBM:"))
@@ -112,6 +114,8 @@ static void at_cbs_set_topics(struct ofono_cbs *cbs, const char *topics,
 	char *buf;
 	unsigned int id;
 
+	DBG("");
+
 	if (!cbd)
 		goto error;
 
@@ -137,8 +141,7 @@ static void at_cbs_set_topics(struct ofono_cbs *cbs, const char *topics,
 		return;
 
 error:
-	if (cbd)
-		g_free(cbd);
+	g_free(cbd);
 
 	CALLBACK_WITH_FAILURE(cb, user_data);
 }
@@ -149,6 +152,8 @@ static void at_cbs_clear_topics(struct ofono_cbs *cbs,
 	struct cbs_data *data = ofono_cbs_get_data(cbs);
 	struct cb_data *cbd = cb_data_new(cb, user_data);
 	char buf[256];
+
+	DBG("");
 
 	if (!cbd)
 		goto error;
@@ -163,8 +168,7 @@ static void at_cbs_clear_topics(struct ofono_cbs *cbs,
 		return;
 
 error:
-	if (cbd)
-		g_free(cbd);
+	g_free(cbd);
 
 	CALLBACK_WITH_FAILURE(cb, user_data);
 }
@@ -237,12 +241,12 @@ static int at_cbs_probe(struct ofono_cbs *cbs, unsigned int vendor,
 	struct cbs_data *data;
 
 	data = g_new0(struct cbs_data, 1);
-	data->chat = chat;
+	data->chat = g_at_chat_clone(chat);
 	data->vendor = vendor;
 
 	ofono_cbs_set_data(cbs, data);
 
-	g_at_chat_send(chat, "AT+CSCB=?", cscb_prefix,
+	g_at_chat_send(data->chat, "AT+CSCB=?", cscb_prefix,
 			at_cscb_support_cb, cbs, NULL);
 
 	return 0;
@@ -254,6 +258,7 @@ static void at_cbs_remove(struct ofono_cbs *cbs)
 
 	ofono_cbs_set_data(cbs, NULL);
 
+	g_at_chat_unref(data->chat);
 	g_free(data);
 }
 

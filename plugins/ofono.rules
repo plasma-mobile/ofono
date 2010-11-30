@@ -2,10 +2,16 @@
 
 ACTION!="add|change", GOTO="ofono_end"
 
-SUBSYSTEM!="tty", GOTO="ofono_huawei_end"
-KERNEL!="ttyUSB[0-9]*", GOTO="ofono_huawei_end"
+SUBSYSTEM!="tty", GOTO="ofono_tty_end"
+KERNEL!="ttyUSB[0-9]*", GOTO="ofono_tty_end"
 
 SUBSYSTEMS=="usb", ATTRS{bInterfaceNumber}=="?*", ATTRS{bInterfaceClass}=="ff", ENV{OFONO_IFACE_NUM}="$attr{bInterfaceNumber}"
+
+ATTRS{idVendor}=="19d2", ATTRS{idProduct}=="0031", ENV{OFONO_IFACE_NUM}=="03", ENV{OFONO_ZTE_TYPE}="modem"
+ATTRS{idVendor}=="19d2", ATTRS{idProduct}=="0031", ENV{OFONO_IFACE_NUM}=="01", ENV{OFONO_ZTE_TYPE}="aux"
+
+ATTRS{idVendor}=="19d2", ATTRS{idProduct}=="0063", ENV{OFONO_IFACE_NUM}=="03", ENV{OFONO_ZTE_TYPE}="modem"
+ATTRS{idVendor}=="19d2", ATTRS{idProduct}=="0063", ENV{OFONO_IFACE_NUM}=="01", ENV{OFONO_ZTE_TYPE}="aux"
 
 # Generic 0x1001
 ATTRS{idVendor}=="12d1", ATTRS{idProduct}=="1001", ENV{OFONO_IFACE_NUM}=="00", ENV{OFONO_HUAWEI_TYPE}="Modem"
@@ -48,6 +54,7 @@ ATTRS{idVendor}=="12d1", ATTRS{idProduct}=="140b", ENV{OFONO_IFACE_NUM}=="00", E
 ATTRS{idVendor}=="12d1", ATTRS{idProduct}=="140b", ENV{OFONO_IFACE_NUM}=="02", ENV{OFONO_HUAWEI_TYPE}="Pcui"
 
 ATTRS{idVendor}=="12d1", ATTRS{idProduct}=="140c", ENV{OFONO_IFACE_NUM}=="00", ENV{OFONO_HUAWEI_TYPE}="Modem"
+ATTRS{idVendor}=="12d1", ATTRS{idProduct}=="140c", ENV{OFONO_IFACE_NUM}=="01", ENV{OFONO_HUAWEI_TYPE}="NDIS"
 ATTRS{idVendor}=="12d1", ATTRS{idProduct}=="140c", ENV{OFONO_IFACE_NUM}=="03", ENV{OFONO_HUAWEI_TYPE}="Pcui"
 
 ATTRS{idVendor}=="12d1", ATTRS{idProduct}=="140d", ENV{OFONO_IFACE_NUM}=="00", ENV{OFONO_HUAWEI_TYPE}="Modem"
@@ -328,16 +335,35 @@ ATTRS{idVendor}=="12d1", ATTRS{idProduct}=="1485", ENV{OFONO_IFACE_NUM}=="02", E
 
 ATTRS{idVendor}=="12d1", ATTRS{idProduct}=="1486", ENV{OFONO_IFACE_NUM}=="00", ENV{OFONO_HUAWEI_TYPE}="Modem"
 ATTRS{idVendor}=="12d1", ATTRS{idProduct}=="1486", ENV{OFONO_IFACE_NUM}=="02", ENV{OFONO_HUAWEI_TYPE}="Pcui"
-LABEL="ofono_huawei_end"
+
+LABEL="ofono_tty_end"
+
+# ISI/Phonet drivers
+SUBSYSTEM!="net", GOTO="ofono_isi_end"
+ATTRS{type}!="820", GOTO="ofono_isi_end"
+KERNELS=="gadget", GOTO="ofono_isi_end"
+
+# Generic / PC Suite mode
+SUBSYSTEMS=="usb", ENV{OFONO_DRIVER}="isigen", ENV{OFONO_ISI_ADDRESS}="16"
+
+# Nokia N900 modem
+SUBSYSTEMS=="hsi", ENV{OFONO_DRIVER}="n900", ENV{OFONO_ISI_ADDRESS}="108"
+
+LABEL="ofono_isi_end"
 
 SUBSYSTEM!="usb", GOTO="ofono_end"
 ENV{DEVTYPE}!="usb_device", GOTO="ofono_end"
 
+# Novatel Wireless
+ATTRS{idVendor}=="1410", ENV{OFONO_DRIVER}="novatel"
+
 # HUAWEI Technology
 ATTRS{idVendor}=="12d1", ENV{OFONO_DRIVER}="huawei"
 
-# Novatel Wireless
-ATTRS{idVendor}=="1410", ENV{OFONO_DRIVER}="novatel"
+# ZTE Incorporated
+ATTRS{idVendor}=="19d2", ENV{OFONO_DRIVER}="zte"
+
+ATTRS{idVendor}=="19d2", ATTRS{serial}=="1234567890ABCDEF", ENV{ID_SERIAL_SHORT}=""
 
 # Option Globetrotter
 ATTRS{idVendor}=="0af0", ATTRS{idProduct}=="6911", ENV{OFONO_DRIVER}="hso"
@@ -356,9 +382,16 @@ ATTRS{idVendor}=="0bdb", ATTRS{idProduct}=="1904", ENV{OFONO_DRIVER}="mbm"
 ATTRS{idVendor}=="0bdb", ATTRS{idProduct}=="1905", ENV{OFONO_DRIVER}="mbm"
 ATTRS{idVendor}=="0bdb", ATTRS{idProduct}=="1906", ENV{OFONO_DRIVER}="mbm"
 
+# Ericsson c3607w
+ATTRS{idVendor}=="0bdb", ATTRS{idProduct}=="190b", ENV{OFONO_DRIVER}="mbm"
+ATTRS{idVendor}=="0bdb", ATTRS{idProduct}=="1049", ENV{OFONO_DRIVER}="mbm"
+
 # Ericsson F3307
 ATTRS{idVendor}=="0bdb", ATTRS{idProduct}=="190a", ENV{OFONO_DRIVER}="mbm"
 ATTRS{idVendor}=="0bdb", ATTRS{idProduct}=="1909", ENV{OFONO_DRIVER}="mbm"
+
+# Ericsson F5521gw
+ATTRS{idVendor}=="0bdb", ATTRS{idProduct}=="190d", ENV{OFONO_DRIVER}="mbm"
 
 # Sony-Ericsson MD300
 ATTRS{idVendor}=="0fce", ATTRS{idProduct}=="d0cf", ENV{OFONO_DRIVER}="mbm"
@@ -374,11 +407,29 @@ ATTRS{idVendor}=="413c", ATTRS{idProduct}=="8184", ENV{OFONO_DRIVER}="mbm"
 ATTRS{idVendor}=="413c", ATTRS{idProduct}=="818b", ENV{OFONO_DRIVER}="mbm"
 ATTRS{idVendor}=="413c", ATTRS{idProduct}=="818c", ENV{OFONO_DRIVER}="mbm"
 
+# HP hs2330 Mobile Broadband Module
+ATTRS{idVendor}=="03f0", ATTRS{idProduct}=="271d", ENV{OFONO_DRIVER}="mbm"
+
+# HP hs2320 Mobile Broadband Module
+ATTRS{idVendor}=="03f0", ATTRS{idProduct}=="261d", ENV{OFONO_DRIVER}="mbm"
+
+# HP lc2000 Mobile Broadband Module
+ATTRS{idVendor}=="03f0", ATTRS{idProduct}=="301d", ENV{OFONO_DRIVER}="mbm"
+
+# HP lc2010 Mobile Broadband Module
+ATTRS{idVendor}=="03f0", ATTRS{idProduct}=="2f1d", ENV{OFONO_DRIVER}="mbm"
+
 # Toshiba
 ATTRS{idVendor}=="0930", ATTRS{idProduct}=="130b", ENV{OFONO_DRIVER}="mbm"
 
 # Toshiba F3607gw
 ATTRS{idVendor}=="0930", ATTRS{idProduct}=="130c", ENV{OFONO_DRIVER}="mbm"
 ATTRS{idVendor}=="0930", ATTRS{idProduct}=="1311", ENV{OFONO_DRIVER}="mbm"
+
+# Nokia Internet Stick CS-10
+ATTRS{idVendor}=="0421", ATTRS{idProduct}=="060e", ENV{OFONO_DRIVER}="nokia"
+
+# Nokia Internet Stick CS-17
+ATTRS{idVendor}=="0421", ATTRS{idProduct}=="0623", ENV{OFONO_DRIVER}="nokia"
 
 LABEL="ofono_end"
