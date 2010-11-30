@@ -640,7 +640,7 @@ static gboolean parse_dataobj_file_list(struct comprehension_tlv_iter *iter,
 	return TRUE;
 
 error:
-	g_slist_foreach(*fl, (GFunc)g_free, NULL);
+	g_slist_foreach(*fl, (GFunc) g_free, NULL);
 	g_slist_free(*fl);
 	return FALSE;
 }
@@ -2237,7 +2237,7 @@ static gboolean parse_item_list(struct comprehension_tlv_iter *iter,
 	if (count == 1)
 		return TRUE;
 
-	g_slist_foreach(list, (GFunc)destroy_stk_item, NULL);
+	g_slist_foreach(list, (GFunc) destroy_stk_item, NULL);
 	g_slist_free(list);
 	return FALSE;
 
@@ -2358,7 +2358,7 @@ static enum stk_command_parse_result parse_dataobj(
 			minimum_set = FALSE;
 	}
 
-	g_slist_foreach(entries, (GFunc)g_free, NULL);
+	g_slist_foreach(entries, (GFunc) g_free, NULL);
 	g_slist_free(entries);
 
 	if (minimum_set == FALSE)
@@ -2543,7 +2543,7 @@ static void destroy_setup_menu(struct stk_command *command)
 {
 	g_free(command->setup_menu.alpha_id);
 	g_slist_foreach(command->setup_menu.items,
-				(GFunc)destroy_stk_item, NULL);
+				(GFunc) destroy_stk_item, NULL);
 	g_slist_free(command->setup_menu.items);
 }
 
@@ -2585,7 +2585,7 @@ static void destroy_select_item(struct stk_command *command)
 {
 	g_free(command->select_item.alpha_id);
 	g_slist_foreach(command->select_item.items,
-				(GFunc)destroy_stk_item, NULL);
+				(GFunc) destroy_stk_item, NULL);
 	g_slist_free(command->select_item.items);
 }
 
@@ -2847,7 +2847,7 @@ static enum stk_command_parse_result parse_setup_call(
 
 static void destroy_refresh(struct stk_command *command)
 {
-	g_slist_foreach(command->refresh.file_list, (GFunc)g_free, NULL);
+	g_slist_foreach(command->refresh.file_list, (GFunc) g_free, NULL);
 	g_slist_free(command->refresh.file_list);
 	g_free(command->refresh.alpha_id);
 }
@@ -3144,7 +3144,7 @@ static void destroy_launch_browser(struct stk_command *command)
 	g_free(command->launch_browser.url);
 	g_free(command->launch_browser.bearer.array);
 	g_slist_foreach(command->launch_browser.prov_file_refs,
-				(GFunc)g_free, NULL);
+				(GFunc) g_free, NULL);
 	g_slist_free(command->launch_browser.prov_file_refs);
 	g_free(command->launch_browser.text_gateway_proxy_id);
 	g_free(command->launch_browser.alpha_id);
@@ -3448,7 +3448,7 @@ static void destroy_retrieve_mms(struct stk_command *command)
 {
 	g_free(command->retrieve_mms.alpha_id);
 	g_slist_foreach(command->retrieve_mms.mms_rec_files,
-						(GFunc)g_free, NULL);
+						(GFunc) g_free, NULL);
 	g_slist_free(command->retrieve_mms.mms_rec_files);
 }
 
@@ -3492,7 +3492,7 @@ static void destroy_submit_mms(struct stk_command *command)
 {
 	g_free(command->submit_mms.alpha_id);
 	g_slist_foreach(command->submit_mms.mms_subm_files,
-						(GFunc)g_free, NULL);
+						(GFunc) g_free, NULL);
 	g_slist_free(command->submit_mms.mms_subm_files);
 }
 
@@ -3529,7 +3529,7 @@ static enum stk_command_parse_result parse_submit_mms(
 static void destroy_display_mms(struct stk_command *command)
 {
 	g_slist_foreach(command->display_mms.mms_subm_files,
-						(GFunc)g_free, NULL);
+						(GFunc) g_free, NULL);
 	g_slist_free(command->display_mms.mms_subm_files);
 }
 
@@ -4148,7 +4148,8 @@ static gboolean build_dataobj_text(struct stk_tlv_builder *tlv,
 		return FALSE;
 
 	if (text->yesno == TRUE) {
-		/* Section 6.8.5:
+		/*
+		 * Section 6.8.5:
 		 * When the terminal issues [...] command qualifier set
 		 * to "Yes/No", it shall supply the value "01" when the
 		 * answer is "positive" and the value '00' when the
@@ -4166,6 +4167,31 @@ static gboolean build_dataobj_text(struct stk_tlv_builder *tlv,
 
 	if (ret != TRUE)
 		return ret;
+
+	return stk_tlv_builder_close_container(tlv);
+}
+
+/* Defined in TS 102.223 Section 8.15 - USSD specific case*/
+static gboolean build_dataobj_ussd_text(struct stk_tlv_builder *tlv,
+					const void *data, gboolean cr)
+{
+	const struct stk_ussd_text *text = data;
+	unsigned char tag = STK_DATA_OBJECT_TYPE_TEXT;
+
+	if (text->has_text == FALSE)
+		return TRUE;
+
+	if (stk_tlv_builder_open_container(tlv, cr, tag, TRUE) != TRUE)
+		return FALSE;
+
+	if (text->len > 0) {
+		if (stk_tlv_builder_append_byte(tlv, text->dcs) != TRUE)
+			return FALSE;
+
+		if (stk_tlv_builder_append_bytes(tlv, text->text,
+							text->len) != TRUE)
+			return FALSE;
+	}
 
 	return stk_tlv_builder_close_container(tlv);
 }
@@ -4274,7 +4300,8 @@ static gboolean build_empty_dataobj_location_info(struct stk_tlv_builder *tlv,
 		stk_tlv_builder_close_container(tlv);
 }
 
-/* Described in TS 102.223 Section 8.20
+/*
+ * Described in TS 102.223 Section 8.20
  *
  * See format note in parse_dataobj_imei.
  */
@@ -4684,14 +4711,12 @@ static gboolean build_dataobj_other_address(struct stk_tlv_builder *tlv,
 		ok = TRUE;
 		break;
 	case STK_ADDRESS_IPV4:
-		ok =
-			stk_tlv_builder_append_byte(tlv, addr->type) &&
+		ok = stk_tlv_builder_append_byte(tlv, addr->type) &&
 			stk_tlv_builder_append_bytes(tlv,
 					(const guint8 *) &addr->addr.ipv4, 4);
 		break;
 	case STK_ADDRESS_IPV6:
-		ok =
-			stk_tlv_builder_append_byte(tlv, addr->type) &&
+		ok = stk_tlv_builder_append_byte(tlv, addr->type) &&
 			stk_tlv_builder_append_bytes(tlv, addr->addr.ipv6, 16);
 		break;
 	}
@@ -4839,7 +4864,8 @@ static gboolean build_dataobj_pdp_context_params(struct stk_tlv_builder *tlv,
 		stk_tlv_builder_close_container(tlv);
 }
 
-/* Described in TS 102.223 Section 8.74
+/*
+ * Described in TS 102.223 Section 8.74
  *
  * See format note in parse_dataobj_imeisv.
  */
@@ -4975,8 +5001,10 @@ static gboolean build_dataobj_mms_transfer_status(struct stk_tlv_builder *tlv,
 	const struct stk_mms_transfer_status *mts = data;
 	unsigned char tag = STK_DATA_OBJECT_TYPE_MMS_TRANSFER_STATUS;
 
-	/* Assume the length is never 0 for a valid Result message, however
-	 * the whole data object's presence is conditional.  */
+	/*
+	 * Assume the length is never 0 for a valid Result message, however
+	 * the whole data object's presence is conditional.
+	 */
 	if (mts->len == 0)
 		return TRUE;
 
@@ -5364,7 +5392,8 @@ const unsigned char *stk_pdu_from_response(const struct stk_response *response,
 	if (stk_tlv_builder_close_container(&builder) == FALSE)
 		return NULL;
 
-	/* TS 102 223 section 6.8 states:
+	/*
+	 * TS 102 223 section 6.8 states:
 	 * "For all COMPREHENSION-TLV objects with Min = N, the terminal
 	 * should set the CR flag to comprehension not required."
 	 * All the data objects except "Command Details" and "Result" have
@@ -5426,6 +5455,8 @@ const unsigned char *stk_pdu_from_response(const struct stk_response *response,
 					&response->select_item.item_id,
 					NULL);
 		break;
+	case STK_COMMAND_TYPE_SEND_SS:
+		break;
 	case STK_COMMAND_TYPE_SETUP_CALL:
 		ok = build_setup_call(&builder, response);
 		break;
@@ -5458,6 +5489,13 @@ const unsigned char *stk_pdu_from_response(const struct stk_response *response,
 	case STK_COMMAND_TYPE_SEND_DTMF:
 	case STK_COMMAND_TYPE_LANGUAGE_NOTIFICATION:
 	case STK_COMMAND_TYPE_LAUNCH_BROWSER:
+		break;
+	case STK_COMMAND_TYPE_SEND_USSD:
+		ok = build_dataobj(&builder,
+					build_dataobj_ussd_text,
+					DATAOBJ_FLAG_CR,
+					&response->send_ussd.text,
+					NULL);
 		break;
 	default:
 		return NULL;

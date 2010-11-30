@@ -28,6 +28,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <errno.h>
 
 #include <glib.h>
 
@@ -78,8 +79,7 @@ static void at_gprs_set_attached(struct ofono_gprs *gprs, int attached,
 		return;
 
 error:
-	if (cbd)
-		g_free(cbd);
+	g_free(cbd);
 
 	CALLBACK_WITH_FAILURE(cb, data);
 }
@@ -136,8 +136,7 @@ static void at_gprs_registration_status(struct ofono_gprs *gprs,
 		return;
 
 error:
-	if (cbd)
-		g_free(cbd);
+	g_free(cbd);
 
 	CALLBACK_WITH_FAILURE(cb, -1, data);
 }
@@ -176,6 +175,31 @@ static void cgev_notify(GAtResult *result, gpointer user_data)
 	}
 }
 
+static void xdatastat_notify(GAtResult *result, gpointer user_data)
+{
+	struct ofono_gprs *gprs = user_data;
+	GAtResultIter iter;
+	int stat;
+
+	g_at_result_iter_init(&iter, result);
+
+	if (!g_at_result_iter_next(&iter, "+XDATASTAT:"))
+		return;
+
+	if (!g_at_result_iter_next_number(&iter, &stat))
+
+	DBG("stat %d", stat);
+
+	switch (stat) {
+	case 0:
+		ofono_gprs_suspend_notify(gprs, GPRS_SUSPENDED_UNKNOWN_CAUSE);
+		break;
+	case 1:
+		ofono_gprs_resume_notify(gprs);
+		break;
+	}
+}
+
 static void gprs_initialized(gboolean ok, GAtResult *result, gpointer user_data)
 {
 	struct ofono_gprs *gprs = user_data;
@@ -183,7 +207,17 @@ static void gprs_initialized(gboolean ok, GAtResult *result, gpointer user_data)
 
 	g_at_chat_register(gd->chat, "+CGEV:", cgev_notify, FALSE, gprs, NULL);
 	g_at_chat_register(gd->chat, "+CGREG:", cgreg_notify,
-				FALSE, gprs, NULL);
+					FALSE, gprs, NULL);
+
+	switch (gd->vendor) {
+	case OFONO_VENDOR_IFX:
+		/* Register for GPRS suspend notifications */
+		g_at_chat_register(gd->chat, "+XDATASTAT:", xdatastat_notify,
+						FALSE, gprs, NULL);
+		g_at_chat_send(gd->chat, "AT+XDATASTAT=1", none_prefix,
+						NULL, NULL, NULL);
+		break;
+	}
 
 	ofono_gprs_register(gprs);
 }
@@ -229,13 +263,23 @@ static void at_cgreg_test_cb(gboolean ok, GAtResult *result,
 	g_at_chat_send(gd->chat, cmd, none_prefix, NULL, NULL, NULL);
 	g_at_chat_send(gd->chat, "AT+CGAUTO=0", none_prefix, NULL, NULL, NULL);
 
-	/* ST-E modem does not support AT+CGEREP = 2,1 */
-	if (gd->vendor == OFONO_VENDOR_STE)
+	switch (gd->vendor) {
+	case OFONO_VENDOR_MBM:
+		/* Ericsson MBM and ST-E modems don't support AT+CGEREP=2,1 */
 		g_at_chat_send(gd->chat, "AT+CGEREP=1,0", none_prefix,
 			gprs_initialized, gprs, NULL);
-	else
+		break;
+	case OFONO_VENDOR_NOKIA:
+		/* Nokia data cards don't support AT+CGEREP=1,0 either */
+		g_at_chat_send(gd->chat, "AT+CGEREP=1", none_prefix,
+			gprs_initialized, gprs, NULL);
+		break;
+	default:
 		g_at_chat_send(gd->chat, "AT+CGEREP=2,1", none_prefix,
 			gprs_initialized, gprs, NULL);
+		break;
+	}
+
 	return;
 
 error:
@@ -305,13 +349,16 @@ static int at_gprs_probe(struct ofono_gprs *gprs,
 	GAtChat *chat = data;
 	struct gprs_data *gd;
 
-	gd = g_new0(struct gprs_data, 1);
-	gd->chat = chat;
+	gd = g_try_new0(struct gprs_data, 1);
+	if (!gd)
+		return -ENOMEM;
+
+	gd->chat = g_at_chat_clone(chat);
 	gd->vendor = vendor;
 
 	ofono_gprs_set_data(gprs, gd);
 
-	g_at_chat_send(chat, "AT+CGDCONT=?", cgdcont_prefix,
+	g_at_chat_send(gd->chat, "AT+CGDCONT=?", cgdcont_prefix,
 			at_cgdcont_test_cb, gprs, NULL);
 
 	return 0;
@@ -322,6 +369,8 @@ static void at_gprs_remove(struct ofono_gprs *gprs)
 	struct gprs_data *gd = ofono_gprs_get_data(gprs);
 
 	ofono_gprs_set_data(gprs, NULL);
+
+	g_at_chat_unref(gd->chat);
 	g_free(gd);
 }
 

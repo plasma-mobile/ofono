@@ -1,23 +1,21 @@
 /*
- * This file is part of oFono - Open Source Telephony
  *
- * Copyright (C) 2009 Nokia Corporation and/or its subsidiary(-ies).
+ *  oFono - Open Source Telephony
  *
- * Contact: Pekka Pessi <Pekka.Pessi@nokia.com>
+ *  Copyright (C) 2009-2010 Nokia Corporation and/or its subsidiary(-ies).
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * version 2 as published by the Free Software Foundation.
+ *  This program is free software; you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License version 2 as
+ *  published by the Free Software Foundation.
  *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
- * 02110-1301 USA
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program; if not, write to the Free Software
+ *  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
 
@@ -904,9 +902,9 @@ static int isi_call_status_to_clcc(struct isi_call const *call)
 		return 4;
 	case CALL_STATUS_PROCEEDING:
 		if ((call->mode_info & CALL_MODE_ORIGINATOR))
-			return 4;
+			return 4; /* MT */
 		else
-			return 2;
+			return 2; /* MO */
 	case CALL_STATUS_MO_ALERTING:
 		return 3;
 	case CALL_STATUS_MT_ALERTING:
@@ -988,11 +986,37 @@ static void isi_answer(struct ofono_voicecall *ovc,
 	isi_call_answer_req(ovc, CALL_ID_ALL, cb, data);
 }
 
-static void isi_hangup(struct ofono_voicecall *ovc,
+static void isi_hangup_current(struct ofono_voicecall *ovc,
 			ofono_voicecall_cb_t cb, void *data)
 {
-	/* AT+CHUP */
-	isi_call_release_req(ovc, CALL_ID_ALL, CALL_CAUSE_TYPE_CLIENT,
+	/*
+	 * Hangup call(s) that are not held or waiting:
+	 * active calls or calls in progress.
+	 */
+	struct isi_voicecall *ivc = ofono_voicecall_get_data(ovc);
+	int id = 0;
+
+	for (id = 1; id <= 7; id++) {
+		if (ivc->calls[id].call_id & CALL_ID_WAITING)
+			continue;
+		if (ivc->calls[id].call_id & CALL_ID_HOLD)
+			continue;
+
+		switch (ivc->calls[id].status) {
+		case CALL_STATUS_CREATE:
+		case CALL_STATUS_COMING:
+		case CALL_STATUS_PROCEEDING:
+		case CALL_STATUS_MO_ALERTING:
+		case CALL_STATUS_MT_ALERTING:
+		case CALL_STATUS_ANSWERED:
+			goto release_by_id;
+		}
+	}
+
+	id = CALL_ID_ACTIVE;
+
+release_by_id:
+	isi_call_release_req(ovc, id, CALL_CAUSE_TYPE_CLIENT,
 				CALL_CAUSE_RELEASE_BY_USER, cb, data);
 }
 
@@ -1007,25 +1031,10 @@ static void isi_release_all_held(struct ofono_voicecall *ovc,
 static void isi_set_udub(struct ofono_voicecall *ovc,
 				ofono_voicecall_cb_t cb, void *data)
 {
-	/* AT+CHLD=0 (w/ incoming calls) */
-	struct isi_voicecall *ivc = ofono_voicecall_get_data(ovc);
-	int id = 0;
-
-	for (id = 1; id <= 7; id++) {
-		if (ivc->calls[id].status == CALL_STATUS_WAITING)
-			break;
-		if (ivc->calls[id].status == CALL_STATUS_MT_ALERTING)
-			break;
-		if (ivc->calls[id].status == CALL_STATUS_COMING)
-			break;
-	}
-
-	if (id <= 7)
-		isi_call_release_req(ovc, id, CALL_CAUSE_TYPE_CLIENT,
-					CALL_CAUSE_BUSY_USER_REQUEST,
-					cb, data);
-	else
-		CALLBACK_WITH_FAILURE(cb, data);
+	/* Release waiting calls */
+	isi_call_release_req(ovc, CALL_ID_WAITING,
+		CALL_CAUSE_TYPE_CLIENT, CALL_CAUSE_BUSY_USER_REQUEST,
+		cb, data);
 }
 
 static void isi_retrieve(struct ofono_voicecall *ovc,
@@ -1140,6 +1149,7 @@ static void isi_release_specific(struct ofono_voicecall *ovc, int id,
 		uint8_t cause = CALL_CAUSE_RELEASE_BY_USER;
 
 		switch (status->status) {
+		case CALL_STATUS_COMING:
 		case CALL_STATUS_MT_ALERTING:
 		case CALL_STATUS_WAITING:
 			cause = CALL_CAUSE_BUSY_USER_REQUEST;
@@ -1306,10 +1316,12 @@ static void isi_voicecall_remove(struct ofono_voicecall *call)
 {
 	struct isi_voicecall *data = ofono_voicecall_get_data(call);
 
-	if (data) {
-		g_isi_client_destroy(data->client);
-		g_free(data);
-	}
+	if (!data)
+		return;
+
+	ofono_voicecall_set_data(call, NULL);
+	g_isi_client_destroy(data->client);
+	g_free(data);
 }
 
 static struct ofono_voicecall_driver driver = {
@@ -1318,7 +1330,7 @@ static struct ofono_voicecall_driver driver = {
 	.remove			= isi_voicecall_remove,
 	.dial			= isi_dial,
 	.answer			= isi_answer,
-	.hangup			= isi_hangup,
+	.hangup_active		= isi_hangup_current,
 	.hold_all_active	= isi_hold_all_active,
 	.release_all_held	= isi_release_all_held,
 	.set_udub		= isi_set_udub,

@@ -1,23 +1,21 @@
 /*
- * This file is part of oFono - Open Source Telephony
  *
- * Copyright (C) 2009 Nokia Corporation and/or its subsidiary(-ies).
+ *  oFono - Open Source Telephony
  *
- * Contact: Aki Niemi <aki.niemi@nokia.com>
+ *  Copyright (C) 2009-2010 Nokia Corporation and/or its subsidiary(-ies).
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * version 2 as published by the Free Software Foundation.
+ *  This program is free software; you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License version 2 as
+ *  published by the Free Software Foundation.
  *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
- * 02110-1301 USA
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program; if not, write to the Free Software
+ *  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
 
@@ -50,50 +48,83 @@
 
 struct ussd_data {
 	GIsiClient *client;
+	int mt_session;
 };
 
-static inline int isi_type_to_status(uint8_t type)
+static void ussd_notify_ack(struct ussd_data *ud)
 {
-	switch (type) {
-	case SS_GSM_USSD_MT_REPLY:
-		return OFONO_USSD_STATUS_LOCAL_CLIENT_RESPONDED;
-	case SS_GSM_USSD_COMMAND:
-		return OFONO_USSD_STATUS_ACTION_REQUIRED;
-	case SS_GSM_USSD_NOTIFY:
-		return OFONO_USSD_STATUS_NOTIFY;
-	case SS_GSM_USSD_END:
-		return OFONO_USSD_STATUS_TERMINATED;
-	case SS_GSM_USSD_REQUEST:
-	default:
-		return OFONO_USSD_STATUS_NOT_SUPPORTED;
-	}
+	const unsigned char msg[] = {
+		SS_GSM_USSD_SEND_REQ,
+		SS_GSM_USSD_NOTIFY,
+		0x00		/* subblock count */
+	};
+
+	g_isi_send(ud->client, msg, sizeof(msg), SS_TIMEOUT, NULL, NULL, NULL);
 }
 
-static void ussd_parse(struct ofono_ussd *ussd, const void *restrict data,
-			size_t len)
+static void ussd_ind_cb(GIsiClient *client,
+			const void *restrict data, size_t len,
+			uint16_t object, void *opaque)
 {
 	const unsigned char *msg = data;
-	int status = OFONO_USSD_STATUS_NOT_SUPPORTED;
-	char *converted = NULL;
+	struct ofono_ussd *ussd = opaque;
+	struct ussd_data *ud = ofono_ussd_get_data(ussd);
+	int dcs;
+	int type;
+	size_t ussdlen;
+	int status;
 
-	if (!msg || len < 4)
-		goto out;
+	if (!msg || len < 4 || msg[0] != SS_GSM_USSD_RECEIVE_IND)
+		return;
 
-	status = isi_type_to_status(msg[2]);
+	dcs = msg[1];
+	type = msg[2];
+	ussdlen = msg[3];
 
-	if (msg[3] == 0 || (size_t)(msg[3] + 4) > len)
-		goto out;
+	if (len < 4 + ussdlen)
+		ussdlen = len - 4;
 
-	converted = ussd_decode(msg[1], msg[3], msg + 4);
+	switch (type) {
+	case 0:
+		/* Nothing - this is response to NOTIFY_ACK REQ */
+		return;
 
-	if (converted)
+	case SS_GSM_USSD_MT_REPLY:
+		/* This never happens, but.. */
+		status = OFONO_USSD_STATUS_LOCAL_CLIENT_RESPONDED;
+		break;
+
+	case SS_GSM_USSD_COMMAND:
+		if (ud->mt_session)
+			/* Ignore, we get SS_GSM_USSD_REQUEST, too */
+			return;
+		status = OFONO_USSD_STATUS_ACTION_REQUIRED;
+		break;
+
+	case SS_GSM_USSD_NOTIFY:
 		status = OFONO_USSD_STATUS_NOTIFY;
+		ussd_notify_ack(ud);
+		break;
 
-out:
-	ofono_ussd_notify(ussd, status, converted);
-	g_free(converted);
+	case SS_GSM_USSD_END:
+		status = OFONO_USSD_STATUS_TERMINATED;
+		ud->mt_session = 0;
+		break;
+
+	case SS_GSM_USSD_REQUEST:
+		ud->mt_session = 1;
+		status = OFONO_USSD_STATUS_ACTION_REQUIRED;
+		break;
+
+	default:
+		status = OFONO_USSD_STATUS_NOT_SUPPORTED;
+	}
+
+	DBG("type: %u %s, dcs: 0x%02x, len: %zu",
+		type, ss_ussd_type_name(type), dcs, ussdlen);
+
+	ofono_ussd_notify(ussd, status, dcs, msg + 4, ussdlen);
 }
-
 
 static gboolean ussd_send_resp_cb(GIsiClient *client,
 					const void *restrict data, size_t len,
@@ -114,72 +145,47 @@ static gboolean ussd_send_resp_cb(GIsiClient *client,
 	if (msg[0] == SS_SERVICE_FAILED_RESP)
 		goto error;
 
-	if (len < 4 || msg[0] != SS_GSM_USSD_SEND_RESP)
+	if (msg[0] != SS_GSM_USSD_SEND_RESP)
 		return FALSE;
 
 	CALLBACK_WITH_SUCCESS(cb, cbd->data);
 
-	ussd_parse(cbd->user, data, len);
-	goto out;
+	return TRUE;
 
 error:
 	CALLBACK_WITH_FAILURE(cb, cbd->data);
-
-out:
-	g_free(cbd);
 	return TRUE;
+
 }
 
-static GIsiRequest *ussd_send_make(GIsiClient *client, uint8_t *str,
-					size_t len, void *data)
-{
-	const uint8_t msg[] = {
-		SS_GSM_USSD_SEND_REQ,
-		SS_GSM_USSD_COMMAND,
-		0x01, /* subblock count */
-		SS_GSM_USSD_STRING,
-		(4 + len + 3) & ~3, /* subblock length */
-		0x0f, /* DCS */
-		len, /* string length */
-		/* USSD string goes here */
-	};
-
-	const struct iovec iov[2] = {
-		{ (uint8_t *)msg, sizeof(msg) },
-		{ str, len }
-	};
-
-	return g_isi_request_vmake(client, iov, 2, SS_TIMEOUT,
-					ussd_send_resp_cb, data);
-}
-
-static void isi_request(struct ofono_ussd *ussd, const char *str,
-				ofono_ussd_cb_t cb, void *data)
+static void isi_request(struct ofono_ussd *ussd, int dcs,
+			const unsigned char *pdu, int len,
+			ofono_ussd_cb_t cb, void *data)
 {
 	struct ussd_data *ud = ofono_ussd_get_data(ussd);
 	struct isi_cb_data *cbd = isi_cb_data_new(ussd, cb, data);
-	unsigned char buf[256];
-	unsigned char *packed = NULL;
-	unsigned char *converted = NULL;
-	long num_packed;
-	long written;
+	const uint8_t msg[] = {
+		SS_GSM_USSD_SEND_REQ,
+		ud->mt_session
+		? SS_GSM_USSD_MT_REPLY
+		: SS_GSM_USSD_COMMAND,
+		0x01,		/* subblock count */
+		SS_GSM_USSD_STRING,
+		4 + len + 3,	/* subblock length */
+		dcs,		/* DCS */
+		len,		/* string length */
+		/* USSD string goes here */
+	};
+	const struct iovec iov[2] = {
+		{ (uint8_t *)msg, sizeof(msg) },
+		{ (uint8_t *)pdu, len }
+	};
 
-	if (!cbd)
+	if (!cbd || !ud)
 		goto error;
 
-	converted = convert_utf8_to_gsm(str, strlen(str), NULL, &written, 0);
-	if (!converted)
-		goto error;
-
-	packed = pack_7bit_own_buf(converted, written, 0, TRUE,
-					&num_packed, 0, buf);
-
-	g_free(converted);
-
-	if (written > SS_MAX_USSD_LENGTH)
-		goto error;
-
-	if (ussd_send_make(ud->client, packed, num_packed, cbd))
+	if (g_isi_vsend(ud->client, iov, 2, SS_TIMEOUT,
+			ussd_send_resp_cb, cbd, g_free))
 		return;
 
 error:
@@ -196,32 +202,19 @@ static void isi_cancel(struct ofono_ussd *ussd,
 	const unsigned char msg[] = {
 		SS_GSM_USSD_SEND_REQ,
 		SS_GSM_USSD_END,
-		0x00 /* subblock count */
+		0x00		/* subblock count */
 	};
 
-	if (!cbd)
+	if (!cbd || !ud)
 		goto error;
 
-	if (g_isi_request_make(ud->client, msg, sizeof(msg), SS_TIMEOUT,
-				ussd_send_resp_cb, cbd))
+	if (g_isi_send(ud->client, msg, sizeof(msg), SS_TIMEOUT,
+			ussd_send_resp_cb, cbd, g_free))
 		return;
 
 error:
 	CALLBACK_WITH_FAILURE(cb, data);
 	g_free(cbd);
-}
-
-static void ussd_ind_cb(GIsiClient *client,
-			const void *restrict data, size_t len,
-			uint16_t object, void *opaque)
-{
-	const unsigned char *msg = data;
-	struct ofono_ussd *ussd = opaque;
-
-	if (!msg || len < 4 || msg[0] != SS_GSM_USSD_RECEIVE_IND)
-		return;
-
-	ussd_parse(ussd, data, len);
 }
 
 static gboolean isi_ussd_register(gpointer user)

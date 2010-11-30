@@ -292,7 +292,8 @@ static DBusMessage *cm_get_properties(DBusConnection *conn, DBusMessage *msg,
 
 	cm->pending = dbus_message_ref(msg);
 
-	/* We don't need to query ppu, currency & acm_max every time
+	/*
+	 * We don't need to query ppu, currency & acm_max every time
 	 * Not sure if we have to query acm & call_meter every time
 	 * so lets play on the safe side and query them.  They should be
 	 * fast to query anyway
@@ -406,7 +407,8 @@ static void set_puct_callback(const struct ofono_error *error, void *data)
 	cm->driver->puct_query(cm, set_puct_query_callback, cm);
 }
 
-/* This function is for the really bizarre case of someone trying to call
+/*
+ * This function is for the really bizarre case of someone trying to call
  * SetProperty before GetProperties.  But we must handle it...
  */
 static void set_puct_initial_query_callback(const struct ofono_error *error,
@@ -665,7 +667,7 @@ int ofono_call_meter_driver_register(const struct ofono_call_meter_driver *d)
 	if (d->probe == NULL)
 		return -EINVAL;
 
-	g_drivers = g_slist_prepend(g_drivers, (void *)d);
+	g_drivers = g_slist_prepend(g_drivers, (void *) d);
 
 	return 0;
 }
@@ -674,7 +676,7 @@ void ofono_call_meter_driver_unregister(const struct ofono_call_meter_driver *d)
 {
 	DBG("driver: %p, name: %s", d, d->name);
 
-	g_drivers = g_slist_remove(g_drivers, (void *)d);
+	g_drivers = g_slist_remove(g_drivers, (void *) d);
 }
 
 static void call_meter_unregister(struct ofono_atom *atom)

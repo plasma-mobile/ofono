@@ -10,20 +10,18 @@ if len(sys.argv) == 2:
 else:
 	manager = dbus.Interface(bus.get_object('org.ofono', '/'),
 			'org.ofono.Manager')
-	properties = manager.GetProperties()
-	path = properties["Modems"][0]
+	modems = manager.GetModems()
+	path = modems[0][0]
 
 print "Propose scanning for modem %s..." % path
 netreg = dbus.Interface(bus.get_object('org.ofono', path),
 				'org.ofono.NetworkRegistration')
 
-operators = netreg.ProposeScan(timeout=100);
+operators = netreg.Scan(timeout=100);
 
-for path in operators:
-	operator = dbus.Interface(bus.get_object('org.ofono', path),
-					'org.ofono.NetworkOperator')
-
-	properties = operator.GetProperties()
+for entry in operators:
+	path = entry[0]
+	properties = entry[1]
 
 	print "[ %s ]" % (path)
 
@@ -35,6 +33,6 @@ for path in operators:
 		else:
 			val = str(properties[key])
 		print "    %s = %s" % (key, val)
-	
+
 	print
 

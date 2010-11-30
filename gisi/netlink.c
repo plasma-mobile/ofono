@@ -1,23 +1,21 @@
 /*
- * This file is part of oFono - Open Source Telephony
  *
- * Copyright (C) 2009 Nokia Corporation and/or its subsidiary(-ies).
+ *  oFono - Open Source Telephony
  *
- * Contact: Rémi Denis-Courmont <remi.denis-courmont@nokia.com>
+ *  Copyright (C) 2009-2010 Nokia Corporation and/or its subsidiary(-ies).
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * version 2 as published by the Free Software Foundation.
+ *  This program is free software; you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License version 2 as
+ *  published by the Free Software Foundation.
  *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
- * 02110-1301 USA
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program; if not, write to the Free Software
+ *  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
 
@@ -438,78 +436,4 @@ int g_pn_netlink_set_address(GIsiModem *idx, uint8_t local)
 		return -EINVAL;
 
 	return netlink_setaddr(ifindex, local);
-}
-
-/* Add remote address */
-static int netlink_addroute(uint32_t ifa_index, uint8_t remote)
-{
-	struct rtmsg *rtm;
-	struct rtattr *rta;
-	uint32_t reqlen = NLMSG_LENGTH(NLMSG_ALIGN(sizeof(*rtm)) +
-				RTA_SPACE(1) +
-				RTA_SPACE(sizeof(ifa_index)));
-	struct req {
-		struct nlmsghdr nlh;
-		char buf[512];
-	} req = {
-		.nlh = {
-			.nlmsg_flags = NLM_F_REQUEST | NLM_F_ACK
-					| NLM_F_CREATE | NLM_F_APPEND,
-			.nlmsg_type = RTM_NEWROUTE,
-			.nlmsg_pid = getpid(),
-			.nlmsg_len = reqlen,
-		},
-	};
-	size_t buflen = sizeof(req.buf) - sizeof(*rtm);
-	int fd;
-	int error;
-	struct sockaddr_nl addr = { .nl_family = AF_NETLINK, };
-
-	rtm = NLMSG_DATA(&req.nlh);
-	rtm->rtm_family = AF_PHONET;
-	rtm->rtm_dst_len = 6;
-	rtm->rtm_src_len = 0;
-	rtm->rtm_tos = 0;
-
-	rtm->rtm_table = RT_TABLE_MAIN;
-	rtm->rtm_protocol = RTPROT_STATIC;
-	rtm->rtm_scope = RT_SCOPE_UNIVERSE;
-	rtm->rtm_type = RTN_UNICAST;
-	rtm->rtm_flags = 0;
-
-	rta = IFA_RTA(rtm);
-	rta->rta_type = RTA_DST;
-	rta->rta_len = RTA_LENGTH(1);
-	*(uint8_t *)RTA_DATA(rta) = remote;
-
-	rta = RTA_NEXT(rta, buflen);
-	rta->rta_type = RTA_OIF;
-	rta->rta_len = RTA_LENGTH(sizeof(ifa_index));
-	*(uint32_t *)RTA_DATA(rta) = ifa_index;
-
-	fd = netlink_socket();
-	if (fd == -1)
-		return -errno;
-
-	if (sendto(fd, &req, reqlen, 0, (void *)&addr, sizeof(addr)) == -1)
-		error = -errno;
-	else
-		error = netlink_getack(fd);
-
-	close(fd);
-
-	return error;
-}
-
-int g_pn_netlink_add_route(GIsiModem *idx, uint8_t remote)
-{
-	uint32_t ifindex = g_isi_modem_index(idx);
-
-	if (ifindex == 0)
-		return -ENODEV;
-
-	if (remote != PN_DEV_SOS && remote != PN_DEV_HOST)
-		return -EINVAL;
-
-	return netlink_addroute(ifindex, remote);
 }

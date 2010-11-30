@@ -1,21 +1,21 @@
 /*
- * This file is part of oFono - Open Source Telephony
  *
- * Copyright (C) 2009 Nokia Corporation and/or its subsidiary(-ies).
+ *  oFono - Open Source Telephony
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * version 2 as published by the Free Software Foundation.
+ *  Copyright (C) 2009-2010 Nokia Corporation and/or its subsidiary(-ies).
  *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
+ *  This program is free software; you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License version 2 as
+ *  published by the Free Software Foundation.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
- * 02110-1301 USA
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program; if not, write to the Free Software
+ *  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
 
@@ -50,15 +50,15 @@ struct cbs_data {
 static void isi_set_topics(struct ofono_cbs *cbs, const char *topics,
 				ofono_cbs_set_cb_t cb, void *data)
 {
-	DBG("Not implemented (topics=%s)", topics);
-	CALLBACK_WITH_FAILURE(cb, data);
+	DBG("Not implemented (topics=%s), all topics accepted", topics);
+	CALLBACK_WITH_SUCCESS(cb, data);
 }
 
 static void isi_clear_topics(struct ofono_cbs *cbs,
 				ofono_cbs_set_cb_t cb, void *data)
 {
 	DBG("Not implemented");
-	CALLBACK_WITH_FAILURE(cb, data);
+	CALLBACK_WITH_SUCCESS(cb, data);
 }
 
 static void routing_ntf_cb(GIsiClient *client,
@@ -71,7 +71,15 @@ static void routing_ntf_cb(GIsiClient *client,
 	if (!msg || len < 3 || msg[0] != SMS_GSM_CB_ROUTING_NTF)
 		return;
 
-	ofono_cbs_notify(cbs, msg+5, len-5);
+	/* Skipping header(s) */
+	msg += 5;
+	len -= 5;
+
+	/*
+	 * The next 88 bytes of the sub-block are the actual CBS PDU,
+	 * followed by an informational data length field, and filler.
+	 */
+	ofono_cbs_notify(cbs, msg, len - 2);
 }
 
 static gboolean routing_resp_cb(GIsiClient *client,

@@ -174,11 +174,8 @@ static void at_stk_envelope(struct ofono_stk *stk, int length,
 		return;
 
 error:
-	if (buf)
-		g_free(buf);
-
-	if (cbd)
-		g_free(cbd);
+	g_free(buf);
+	g_free(cbd);
 
 	CALLBACK_WITH_FAILURE(cb, NULL, 0, data);
 }
@@ -258,8 +255,7 @@ static void at_stk_terminal_response(struct ofono_stk *stk, int length,
 		return;
 
 error:
-	if (cbd)
-		g_free(cbd);
+	g_free(cbd);
 
 	CALLBACK_WITH_FAILURE(cb, data);
 }
@@ -312,7 +308,7 @@ static int at_stk_probe(struct ofono_stk *stk, unsigned int vendor, void *data)
 	struct stk_data *sd;
 
 	sd = g_new0(struct stk_data, 1);
-	sd->chat = chat;
+	sd->chat = g_at_chat_clone(chat);
 	sd->vendor = vendor;
 
 	ofono_stk_set_data(stk, sd);
@@ -327,6 +323,7 @@ static void at_stk_remove(struct ofono_stk *stk)
 
 	ofono_stk_set_data(stk, NULL);
 
+	g_at_chat_unref(sd->chat);
 	g_free(sd);
 }
 

@@ -1,21 +1,21 @@
 /*
- * This file is part of oFono - Open Source Telephony
  *
- * Copyright (C) 2009 Nokia Corporation and/or its subsidiary(-ies).
+ *  oFono - Open Source Telephony
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * version 2 as published by the Free Software Foundation.
+ *  Copyright (C) 2009-2010 Nokia Corporation and/or its subsidiary(-ies).
  *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
+ *  This program is free software; you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License version 2 as
+ *  published by the Free Software Foundation.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
- * 02110-1301 USA
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program; if not, write to the Free Software
+ *  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
 
@@ -54,6 +54,7 @@ struct file_info {
 	int structure;
 	int record_length;
 	unsigned char access[3];
+	unsigned char file_status;
 };
 
 /* Returns file info */
@@ -66,7 +67,7 @@ static gboolean fake_file_info(gpointer user)
 	DBG("Returning static file_info for %04x", fi->fileid);
 	CALLBACK_WITH_SUCCESS(cb,
 				fi->length, fi->structure, fi->record_length,
-				fi->access, cbd->data);
+				fi->access, fi->file_status, cbd->data);
 	g_free(cbd);
 	return FALSE;
 }
@@ -76,8 +77,8 @@ static void isi_read_file_info(struct ofono_sim *sim, int fileid,
 {
 	int i;
 	static struct file_info const info[] = {
-		{ SIM_EFSPN_FILEID, 17, 0, 0, { 0x0f, 0xff, 0xff } },
-		{ SIM_EF_ICCID_FILEID, 10, 0, 0, { 0x0f, 0xff, 0xff } },
+		{ SIM_EFSPN_FILEID, 17, 0, 0, { 0x0f, 0xff, 0xff }, 1 },
+		{ SIM_EF_ICCID_FILEID, 10, 0, 0, { 0x0f, 0xff, 0xff }, 1 },
 	};
 	int N = sizeof(info) / sizeof(info[0]);
 	struct isi_cb_data *cbd;
@@ -91,7 +92,7 @@ static void isi_read_file_info(struct ofono_sim *sim, int fileid,
 	}
 
 	DBG("Not implemented (fileid = %04x)", fileid);
-	CALLBACK_WITH_FAILURE(cb, -1, -1, -1, NULL, data);
+	CALLBACK_WITH_FAILURE(cb, -1, -1, -1, NULL, 0, data);
 }
 
 static gboolean spn_resp_cb(GIsiClient *client,
@@ -155,6 +156,9 @@ static gboolean isi_read_spn(struct ofono_sim *sim, struct isi_cb_data *cbd)
 		0
 	};
 
+	if (!sd)
+		return FALSE;
+
 	return g_isi_request_make(sd->client, msg, sizeof(msg),
 					SIM_TIMEOUT, spn_resp_cb, cbd) != NULL;
 }
@@ -195,6 +199,9 @@ static gboolean isi_read_iccid(struct ofono_sim *sim, struct isi_cb_data *cbd)
 {
 	struct sim_data *sd = ofono_sim_get_data(sim);
 	const unsigned char req[] = { SIM_READ_FIELD_REQ, ICC };
+
+	if (!sd)
+		return FALSE;
 
 	return g_isi_request_make(sd->client, req, sizeof(req), SIM_TIMEOUT,
 					read_iccid_resp_cb, cbd) != NULL;
@@ -336,11 +343,10 @@ static void isi_read_imsi(struct ofono_sim *sim,
 		READ_IMSI
 	};
 
-	if (!cbd)
+	if (!cbd || !sd)
 		goto error;
 
-	if (g_isi_request_make(sd->client, msg, sizeof(msg),
-				SIM_TIMEOUT,
+	if (g_isi_request_make(sd->client, msg, sizeof(msg), SIM_TIMEOUT,
 				imsi_resp_cb, cbd))
 		return;
 

@@ -372,7 +372,7 @@ static gboolean cb_ss_control(int type, const char *sc,
 	void *operation = NULL;
 	int i;
 
-	if (cb->pending) {
+	if (__ofono_call_barring_is_busy(cb)) {
 		reply = __ofono_error_busy(msg);
 		g_dbus_send_message(conn, reply);
 
@@ -426,7 +426,8 @@ static gboolean cb_ss_control(int type, const char *sc,
 		return TRUE;
 	}
 
-	/* According to 27.007, AG, AC and AB only work with mode = 0
+	/*
+	 * According to 27.007, AG, AC and AB only work with mode = 0
 	 * We support query by querying all relevant types, since we must
 	 * do this for the deactivation case anyway
 	 */
@@ -504,7 +505,7 @@ static gboolean cb_ss_passwd(const char *sc,
 	DBusMessage *reply;
 	const char *fac;
 
-	if (cb->pending) {
+	if (__ofono_call_barring_is_busy(cb)) {
 		reply = __ofono_error_busy(msg);
 		g_dbus_send_message(conn, reply);
 
@@ -578,6 +579,11 @@ static void cb_unregister_ss_controls(struct ofono_call_barring *cb)
 	__ofono_ussd_passwd_unregister(cb->ussd, "330");
 	__ofono_ussd_passwd_unregister(cb->ussd, "333");
 	__ofono_ussd_passwd_unregister(cb->ussd, "353");
+}
+
+gboolean __ofono_call_barring_is_busy(struct ofono_call_barring *cb)
+{
+	return cb->pending ? TRUE : FALSE;
 }
 
 static inline void cb_append_property(struct ofono_call_barring *cb,
@@ -669,7 +675,7 @@ static DBusMessage *cb_get_properties(DBusConnection *conn, DBusMessage *msg,
 {
 	struct ofono_call_barring *cb = data;
 
-	if (cb->pending)
+	if (__ofono_call_barring_is_busy(cb) || __ofono_ussd_is_busy(cb->ussd))
 		return __ofono_error_busy(msg);
 
 	if (!cb->driver->query)
@@ -733,7 +739,8 @@ static void set_lock_callback(const struct ofono_error *error, void *data)
 		return;
 	}
 
-	/* If we successfully set the value, we must query it back
+	/*
+	 * If we successfully set the value, we must query it back
 	 * Call Barring is a special case, since according to 22.088 2.2.1:
 	 * "The PLMN will ensure that only one of the barring programs is
 	 * active per basic service group. The activation of one specific
@@ -780,7 +787,8 @@ static gboolean cb_lock_property_lookup(const char *property, const char *value,
 		return FALSE;
 	}
 
-	/* Gah, this is a special case.  If we're setting a barring to
+	/*
+	 * Gah, this is a special case.  If we're setting a barring to
 	 * disabled, then generate a disable all outgoing/incoming
 	 * request for a particular basic service
 	 */
@@ -822,7 +830,7 @@ static DBusMessage *cb_set_property(DBusConnection *conn, DBusMessage *msg,
 	int cls;
 	int mode;
 
-	if (cb->pending)
+	if (__ofono_call_barring_is_busy(cb) || __ofono_ussd_is_busy(cb->ussd))
 		return __ofono_error_busy(msg);
 
 	if (!dbus_message_iter_init(msg, &iter))
@@ -894,7 +902,7 @@ static DBusMessage *cb_disable_all(DBusConnection *conn, DBusMessage *msg,
 	if (!cb->driver->set)
 		return __ofono_error_not_implemented(msg);
 
-	if (cb->pending)
+	if (__ofono_call_barring_is_busy(cb) || __ofono_ussd_is_busy(cb->ussd))
 		return __ofono_error_busy(msg);
 
 	if (dbus_message_get_args(msg, NULL, DBUS_TYPE_STRING, &passwd,
@@ -941,7 +949,7 @@ static DBusMessage *cb_set_passwd(DBusConnection *conn, DBusMessage *msg,
 	if (!cb->driver->set_passwd)
 		return __ofono_error_not_implemented(msg);
 
-	if (cb->pending)
+	if (__ofono_call_barring_is_busy(cb) || __ofono_ussd_is_busy(cb->ussd))
 		return __ofono_error_busy(msg);
 
 	if (dbus_message_get_args(msg, NULL, DBUS_TYPE_STRING, &old_passwd,
@@ -1021,7 +1029,7 @@ int ofono_call_barring_driver_register(const struct ofono_call_barring_driver *d
 	if (d->probe == NULL)
 		return -EINVAL;
 
-	g_drivers = g_slist_prepend(g_drivers, (void *)d);
+	g_drivers = g_slist_prepend(g_drivers, (void *) d);
 
 	return 0;
 }
@@ -1030,7 +1038,7 @@ void ofono_call_barring_driver_unregister(const struct ofono_call_barring_driver
 {
 	DBG("driver: %p, name: %s", d, d->name);
 
-	g_drivers = g_slist_remove(g_drivers, (void *)d);
+	g_drivers = g_slist_remove(g_drivers, (void *) d);
 }
 
 static void call_barring_unregister(struct ofono_atom *atom)

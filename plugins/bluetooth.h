@@ -1,4 +1,5 @@
 /*
+ *
  *  oFono - Open Source Telephony
  *
  *  Copyright (C) 2010 Gustavo F. Padovan <gustavo@padovan.org>
@@ -22,6 +23,8 @@
 #define	BLUEZ_MANAGER_INTERFACE		BLUEZ_SERVICE ".Manager"
 #define	BLUEZ_ADAPTER_INTERFACE		BLUEZ_SERVICE ".Adapter"
 #define	BLUEZ_DEVICE_INTERFACE		BLUEZ_SERVICE ".Device"
+
+#define DBUS_TIMEOUT 15
 
 #define HFP_AG_UUID	"0000111F-0000-1000-8000-00805F9B34FB"
 

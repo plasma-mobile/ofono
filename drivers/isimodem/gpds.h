@@ -1,20 +1,21 @@
 /*
- * This file is part of oFono - Open Source Telephony
  *
- * Copyright (C) 2010  Nokia Corporation and/or its subsidary(-ies).
+ *  oFono - Open Source Telephony
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
+ *  Copyright (C) 2009-2010 Nokia Corporation and/or its subsidiary(-ies).
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ *  This program is free software; you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License version 2 as
+ *  published by the Free Software Foundation.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program; if not, write to the Free Software
+ *  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
 
@@ -200,6 +201,23 @@ enum gpds_isi_cause {
 	GPDS_CAUSE_ACCESS_BARRED =		0xFD,
 	GPDS_CAUSE_FATAL_FAILURE =		0xFE,
 	GPDS_CAUSE_AUT_FAILURE =		0xFF,
+};
+
+enum gpds_transfer_status {
+	GPDS_TRANSFER_NOT_AVAIL =		0x00,
+	GPDS_TRANSFER_AVAIL =			0x01,
+};
+
+enum gpds_transfer_cause {
+	GPDS_TRANSFER_CAUSE_ATTACHED =			0x02,
+	GPDS_TRANSFER_CAUSE_DETACHED =			0x03,
+	GPDS_TRANSFER_CAUSE_RESUMED =			0x04,
+	GPDS_TRANSFER_CAUSE_SUSPENDED_NO_COVERAGE =	0x05,
+	GPDS_TRANSFER_CAUSE_SUSPENDED_CALL_SMS =	0x07,
+	GPDS_TRANSFER_CAUSE_SUSPENDED_CALL =		0x08,
+	GPDS_TRANSFER_CAUSE_SUSPENDED_RAU =		0x09,
+	GPDS_TRANSFER_CAUSE_SUSPENDED_LU =		0x0A,
+	GPDS_TRANSFER_CAUSE_DSAC_RESTRICTION =		0x0B,
 };
 
 enum gpds_context_type {

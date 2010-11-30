@@ -380,8 +380,7 @@ static void hfp_dial(struct ofono_voicecall *vc,
 		return;
 
 error:
-	if (cbd)
-		g_free(cbd);
+	g_free(cbd);
 
 	CALLBACK_WITH_FAILURE(cb, data);
 }
@@ -406,8 +405,7 @@ static void hfp_template(const char *cmd, struct ofono_voicecall *vc,
 		return;
 
 error:
-	if (req)
-		g_free(req);
+	g_free(req);
 
 	CALLBACK_WITH_FAILURE(cb, data);
 }
@@ -523,8 +521,7 @@ static void hfp_release_specific(struct ofono_voicecall *vc, int id,
 		return;
 
 error:
-	if (req)
-		g_free(req);
+	g_free(req);
 
 	CALLBACK_WITH_FAILURE(cb, data);
 }
@@ -565,7 +562,7 @@ static void hfp_transfer(struct ofono_voicecall *vc,
 {
 	struct voicecall_data *vd = ofono_voicecall_get_data(vc);
 	/* Transfer can puts held & active calls together and disconnects
-	 * from both.  However, some networks support transfering of
+	 * from both.  However, some networks support transferring of
 	 * dialing/ringing calls as well.
 	 */
 	unsigned int transfer = 0x1 | 0x2 | 0x4 | 0x8;
@@ -612,8 +609,7 @@ static void hfp_send_dtmf(struct ofono_voicecall *vc, const char *dtmf,
 		return;
 
 error:
-	if (req)
-		g_free(req);
+	g_free(req);
 
 	CALLBACK_WITH_FAILURE(cb, data);
 }
@@ -1166,7 +1162,7 @@ static struct ofono_voicecall_driver driver = {
 	.remove			= hfp_voicecall_remove,
 	.dial			= hfp_dial,
 	.answer			= hfp_answer,
-	.hangup			= hfp_hangup,
+	.hangup_active		= hfp_hangup,
 	.hold_all_active	= hfp_hold_all_active,
 	.release_all_held	= hfp_release_all_held,
 	.set_udub		= hfp_set_udub,

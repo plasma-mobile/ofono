@@ -27,6 +27,8 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <errno.h>
+#include <sys/stat.h>
 
 #include <glib.h>
 
@@ -39,6 +41,8 @@
 #include "gatppp.h"
 
 #include "atmodem.h"
+
+#define TUN_SYSFS_DIR "/sys/devices/virtual/misc/tun"
 
 #define STATIC_IP_NETMASK "255.255.255.255"
 
@@ -65,6 +69,11 @@ struct gprs_context_data {
 	void *cb_data;                                  /* Callback data */
 };
 
+static void ppp_debug(const char *str, void *data)
+{
+	ofono_info("%s: %s", (const char *) data, str);
+}
+
 static void ppp_connect(const char *interface, const char *local,
 			const char *remote,
 			const char *dns1, const char *dns2,
@@ -74,9 +83,14 @@ static void ppp_connect(const char *interface, const char *local,
 	struct gprs_context_data *gcd = ofono_gprs_context_get_data(gc);
 	const char *dns[3];
 
+	DBG("");
+
 	dns[0] = dns1;
 	dns[1] = dns2;
 	dns[2] = 0;
+
+	ofono_info("IP: %s", local);
+	ofono_info("DNS: %s, %s", dns1, dns2);
 
 	gcd->state = STATE_ACTIVE;
 	CALLBACK_WITH_SUCCESS(gcd->up_cb, interface, TRUE, local,
@@ -122,6 +136,8 @@ static gboolean setup_ppp(struct ofono_gprs_context *gc)
 	struct gprs_context_data *gcd = ofono_gprs_context_get_data(gc);
 	GAtIO *io;
 
+	DBG("");
+
 	io = g_at_chat_get_io(gcd->chat);
 
 	g_at_chat_suspend(gcd->chat);
@@ -133,6 +149,9 @@ static gboolean setup_ppp(struct ofono_gprs_context *gc)
 		g_at_chat_resume(gcd->chat);
 		return FALSE;
 	}
+
+	if (getenv("OFONO_PPP_DEBUG"))
+		g_at_ppp_set_debug(gcd->ppp, ppp_debug, "PPP");
 
 	g_at_ppp_set_credentials(gcd->ppp, gcd->username, gcd->password);
 
@@ -150,6 +169,8 @@ static void at_cgdata_cb(gboolean ok, GAtResult *result, gpointer user_data)
 {
 	struct ofono_gprs_context *gc = user_data;
 	struct gprs_context_data *gcd = ofono_gprs_context_get_data(gc);
+
+	DBG("ok %d", ok);
 
 	if (!ok) {
 		struct ofono_error error;
@@ -173,6 +194,8 @@ static void at_cgdcont_cb(gboolean ok, GAtResult *result, gpointer user_data)
 	struct ofono_gprs_context *gc = user_data;
 	struct gprs_context_data *gcd = ofono_gprs_context_get_data(gc);
 	char buf[64];
+
+	DBG("ok %d", ok);
 
 	if (!ok) {
 		struct ofono_error error;
@@ -206,6 +229,8 @@ static void at_gprs_activate_primary(struct ofono_gprs_context *gc,
 	char buf[OFONO_GPRS_MAX_APN_LENGTH + 128];
 	int len;
 
+	DBG("cid %u", ctx->cid);
+
 	gcd->active_context = ctx->cid;
 	gcd->up_cb = cb;
 	gcd->cb_data = data;
@@ -228,12 +253,12 @@ static void at_gprs_activate_primary(struct ofono_gprs_context *gc,
 }
 
 static void at_gprs_deactivate_primary(struct ofono_gprs_context *gc,
-					unsigned int id,
+					unsigned int cid,
 					ofono_gprs_context_cb_t cb, void *data)
 {
 	struct gprs_context_data *gcd = ofono_gprs_context_get_data(gc);
 
-	DBG("");
+	DBG("cid %u", cid);
 
 	gcd->state = STATE_DISABLING;
 	gcd->down_cb = cb;
@@ -247,9 +272,20 @@ static int at_gprs_context_probe(struct ofono_gprs_context *gc,
 {
 	GAtChat *chat = data;
 	struct gprs_context_data *gcd;
+	struct stat st;
 
-	gcd = g_new0(struct gprs_context_data, 1);
-	gcd->chat = chat;
+	DBG("");
+
+	if (stat(TUN_SYSFS_DIR, &st) < 0) {
+		ofono_error("Missing support for TUN/TAP devices");
+		return -ENODEV;
+	}
+
+	gcd = g_try_new0(struct gprs_context_data, 1);
+	if (!gcd)
+		return -ENOMEM;
+
+	gcd->chat = g_at_chat_clone(chat);
 
 	ofono_gprs_context_set_data(gc, gcd);
 
@@ -268,6 +304,8 @@ static void at_gprs_context_remove(struct ofono_gprs_context *gc)
 	}
 
 	ofono_gprs_context_set_data(gc, NULL);
+
+	g_at_chat_unref(gcd->chat);
 	g_free(gcd);
 }
 

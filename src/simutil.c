@@ -69,6 +69,7 @@ static struct sim_ef_info ef_db[] = {
 {	0x2F05, ROOTMF, BINARY, 0,	ALW,	PIN	},
 {	0x2F06, ROOTMF, RECORD, 0,	ALW,	PIN	},
 {	0x2FE2, ROOTMF, BINARY, 10,	ALW,	NEV 	},
+{	0x4F20, 0x5F50, BINARY, 0,	PIN,	ADM	},
 {	0x6F05, 0x7F20, BINARY, 0,	ALW,	PIN	},
 {	0x6F06, 0x0000, RECORD, 0,	ALW,	ADM	},
 {	0x6F2C, 0x7F20, BINARY, 16,	PIN,	PIN	},
@@ -579,8 +580,10 @@ gboolean ber_tlv_builder_next(struct ber_tlv_builder *builder,
 	return TRUE;
 }
 
-/* Resize the TLV because the content of Value field needs more space.  If
- * this TLV is part of another TLV, resize that one too.  */
+/*
+ * Resize the TLV because the content of Value field needs more space.
+ * If this TLV is part of another TLV, resize that one too.
+ */
 gboolean ber_tlv_builder_set_length(struct ber_tlv_builder *builder,
 					unsigned int new_len)
 {
@@ -709,8 +712,10 @@ gboolean comprehension_tlv_builder_next(
 	return TRUE;
 }
 
-/* Resize the TLV because the content of Value field needs more space.  If
- * this TLV is part of another TLV, resize that one too.  */
+/*
+ * Resize the TLV because the content of Value field needs more space.
+ * If this TLV is part of another TLV, resize that one too.
+ */
 gboolean comprehension_tlv_builder_set_length(
 				struct comprehension_tlv_builder *builder,
 				unsigned int new_len)
@@ -781,8 +786,10 @@ static char *sim_network_name_parse(const unsigned char *buffer, int length,
 	dcs = *buffer++;
 	length--;
 
-	/* "The MS should add the letters for the Country's Initials and a
-	 * separator (e.g. a space)" */
+	/*
+	 * "The MS should add the letters for the Country's Initials and a
+	 * separator (e.g. a space)"
+	 */
 	if (is_bit_set(dcs, 4))
 		ci = TRUE;
 
@@ -806,7 +813,7 @@ static char *sim_network_name_parse(const unsigned char *buffer, int length,
 			if (buffer[i] == 0xff && buffer[i + 1] == 0xff)
 				break;
 
-		ret = g_convert((const char *)buffer, length,
+		ret = g_convert((const char *) buffer, length,
 					"UTF-8//TRANSLIT", "UCS-2BE",
 					NULL, NULL, NULL);
 		break;
@@ -1303,8 +1310,10 @@ gboolean sim_parse_3g_get_response(const unsigned char *data, int len,
 	if (fcp == NULL)
 		return FALSE;
 
-	/* Find the file size tag 0x80 according to
-	 * ETSI 102.221 Section 11.1.1.3.2 */
+	/*
+	 * Find the file size tag 0x80 according to
+	 * ETSI 102.221 Section 11.1.1.3.2
+	 */
 	tlv = ber_tlv_find_by_tag(fcp, 0x80, fcp_length, &tlv_length);
 
 	if (!tlv || tlv_length < 2)
@@ -1347,14 +1356,17 @@ gboolean sim_parse_3g_get_response(const unsigned char *data, int len,
 	if (str != 0x00 && tlv_length != 5)
 		return FALSE;
 
-	/* strictly speaking the record length is 16 bit, but the valid
-	 * range is 0x01 to 0xFF according to 102.221 */
+	/*
+	 * strictly speaking the record length is 16 bit, but the valid
+	 * range is 0x01 to 0xFF according to 102.221
+	 */
 	if (str != 0x00)
 		rlen = tlv[3];
 	else
 		rlen = 0;
 
-	/* The 3G response data contains references to EFarr which actually
+	/*
+	 * The 3G response data contains references to EFarr which actually
 	 * contains the security attributes.  These are usually not carried
 	 * along with the response data unlike in 2G.  Instead of querying
 	 * this, we simply look it up in our database.  We fudge it somewhat
@@ -1394,7 +1406,8 @@ gboolean sim_parse_3g_get_response(const unsigned char *data, int len,
 
 gboolean sim_parse_2g_get_response(const unsigned char *response, int len,
 					int *file_len, int *record_len,
-					int *structure, unsigned char *access)
+					int *structure, unsigned char *access,
+					unsigned char *file_status)
 {
 	if (len < 14 || response[6] != 0x04)
 		return FALSE;
@@ -1409,10 +1422,48 @@ gboolean sim_parse_2g_get_response(const unsigned char *response, int len,
 	access[1] = response[9];
 	access[2] = response[10];
 
+	*file_status = response[11];
+
 	if (response[13] == 0x01 || response[13] == 0x03)
 		*record_len = response[14];
 	else
 		*record_len = 0;
 
 	return TRUE;
+}
+
+gboolean sim_ust_is_available(unsigned char *efust, unsigned char len,
+						enum sim_ust_service index)
+{
+	if (index >= len * 8u)
+		return FALSE;
+
+	return (efust[index / 8] >> (index % 8)) & 1;
+}
+
+gboolean sim_est_is_active(unsigned char *efest, unsigned char len,
+						enum sim_est_service index)
+{
+	if (index >= len * 8u)
+		return FALSE;
+
+	return (efest[index / 8] >> (index % 8)) & 1;
+}
+
+gboolean sim_sst_is_available(unsigned char *efsst, unsigned char len,
+						enum sim_sst_service index)
+{
+	if (index >= len * 4u)
+		return FALSE;
+
+	return (efsst[index / 4] >> ((index % 4) * 2)) & 1;
+}
+
+gboolean sim_sst_is_active(unsigned char *efsst, unsigned char len,
+						enum sim_sst_service index)
+{
+	if (index >= len * 4u)
+		return FALSE;
+
+	return (efsst[index / 4] >> (((index % 4) * 2) + 1)) & 1;
 }

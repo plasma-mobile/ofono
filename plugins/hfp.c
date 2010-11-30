@@ -1,4 +1,5 @@
 /*
+ *
  *  oFono - Open Source Telephony
  *
  *  Copyright (C) 2008-2010  Intel Corporation. All rights reserved.
@@ -66,7 +67,9 @@ static GHashTable *modem_hash = NULL;
 
 static void hfp_debug(const char *str, void *user_data)
 {
-	ofono_info("%s", str);
+	const char *prefix = user_data;
+
+	ofono_info("%s%s", prefix, str);
 }
 
 static void clear_data(struct ofono_modem *modem)
@@ -83,7 +86,7 @@ static void clear_data(struct ofono_modem *modem)
 	memset(data->cind_pos, 0, sizeof(data->cind_pos));
 }
 
-static void sevice_level_conn_established(struct ofono_modem *modem)
+static void service_level_conn_established(struct ofono_modem *modem)
 {
 	DBusMessage *msg;
 	struct hfp_data *data = ofono_modem_get_data(modem);
@@ -158,7 +161,7 @@ static void chld_cb(gboolean ok, GAtResult *result, gpointer user_data)
 
 	data->ag_mpty_features = ag_mpty_feature;
 
-	sevice_level_conn_established(modem);
+	service_level_conn_established(modem);
 }
 
 static void cmer_cb(gboolean ok, GAtResult *result, gpointer user_data)
@@ -175,7 +178,7 @@ static void cmer_cb(gboolean ok, GAtResult *result, gpointer user_data)
 		g_at_chat_send(data->chat, "AT+CHLD=?", chld_prefix,
 			chld_cb, modem, NULL);
 	else
-		sevice_level_conn_established(modem);
+		service_level_conn_established(modem);
 }
 
 static void cind_status_cb(gboolean ok, GAtResult *result,
@@ -337,7 +340,7 @@ static int service_level_connection(struct ofono_modem *modem, int fd)
 	g_at_chat_set_disconnect_function(chat, hfp_disconnected_cb, modem);
 
 	if (getenv("OFONO_AT_DEBUG"))
-		g_at_chat_set_debug(chat, hfp_debug, NULL);
+		g_at_chat_set_debug(chat, hfp_debug, "");
 
 	snprintf(buf, sizeof(buf), "AT+BRSF=%d", data->hf_features);
 	g_at_chat_send(chat, buf, brsf_prefix,
@@ -595,7 +598,7 @@ static int hfp_enable(struct ofono_modem *modem)
 	status = bluetooth_send_with_reply(data->handsfree_path,
 					BLUEZ_GATEWAY_INTERFACE, "Connect",
 					hfp_connect_reply, modem, NULL,
-					15, DBUS_TYPE_INVALID);
+					DBUS_TIMEOUT, DBUS_TYPE_INVALID);
 
 	if (status < 0)
 		return -EINVAL;
@@ -636,8 +639,8 @@ static int hfp_disable(struct ofono_modem *modem)
 	if (data->agent_registered) {
 		status = bluetooth_send_with_reply(data->handsfree_path,
 					BLUEZ_GATEWAY_INTERFACE, "Disconnect",
-					hfp_power_down, modem, NULL, 15,
-					DBUS_TYPE_INVALID);
+					hfp_power_down, modem, NULL,
+					DBUS_TIMEOUT, DBUS_TYPE_INVALID);
 
 		if (status < 0)
 			return -EINVAL;
