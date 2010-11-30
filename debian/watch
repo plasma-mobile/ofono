@@ -1,2 +1,4 @@
 version=3
-http://www.kernel.org/pub/linux/network/ofono/ofono-(.*)\.tar\.gz debian uupdate
+http://www.kernel.org/pub/linux/network/ofono/ofono-(.*)\.tar\.gz \
+debian \
+uupdate

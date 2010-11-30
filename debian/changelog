@@ -1,3 +1,35 @@
+ofono (0.36-1ubuntu1) UNRELEASED; urgency=low
+
+  * Merge from Debian unstable (LP: #683302), remaining changes:
+    - Adding upstart config and preinst rules
+    - Removing standard init script
+    - Adding Apport support
+    - Patch for recognizing special Huawei devices with weird serial
+    - Bump debhelper build-depend to >= 7.0.50~ for override support
+    - Update debian/compat to 7
+    - Fix script-in-etc-init.d-not-registered-via-update-rc.d lintian warning
+  * Refreshed 01-check-that-modem-name-is-valid.patch for new release.
+
+ -- Mathieu Trudel-Lapierre <mathieu-tl@ubuntu.com>  Tue, 30 Nov 2010 14:23:05 -0500
+
+ofono (0.36-1) unstable; urgency=low
+
+  * New upstream release.
+  * debian/: Added some files relating to building with git.
+  * debian/control:
+    + Adopt the package from Andres. Thanks for your work, dude!
+    + Upped versioned build-dep on glib.
+    + Upped Standards-Version. (no changes)
+  * debinan/ofono.install: Updated.
+  * debian/rules: Switch to cdbs to be like the rest of the pkg-telepathy
+    packages.
+  * debian/ofono.init: Add dependency on $remote_fs in required-start and
+    required-stop.
+  * debian/compat: Lower to 5 for misc reasons.
+  * debian/patches/: Add patch to fix small lintian problem.
+
+ -- Jonny Lamb <jonny@debian.org>  Mon, 29 Nov 2010 18:14:48 +0000
+
 ofono (0.26-0ubuntu2) maverick; urgency=low
 
   [ Kalle Valo <kalle.valo@canonical.com> ]

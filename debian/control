@@ -2,8 +2,14 @@ Source: ofono
 Section: admin
 Priority: optional
 Maintainer: Ubuntu Developers <ubuntu-devel-discuss@lists.ubuntu.com>
-XSBC-Original-Maintainer: Andres Salomon <dilinger@debian.org>
-Build-Depends: debhelper (>= 7.0.50~), libglib2.0-dev (>= 2.16), libdbus-glib-1-dev, libudev-dev, udev, libcap-ng-dev
+XSBC-Original-Maintainer: Debian Telepathy maintainers <pkg-telepathy-maintainers@lists.alioth.debian.org>
+Uploaders: Jonny Lamb <jonny@debian.org>
+Build-Depends: debhelper (>= 7.0.50~),
+               cdbs,
+               libglib2.0-dev (>= 2.22),
+               libdbus-glib-1-dev,
+               libudev-dev,
+               udev
 Standards-Version: 3.9.1
 Homepage: http://www.ofono.org/
 
