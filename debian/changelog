@@ -6,9 +6,10 @@ ofono (0.36-1ubuntu1) UNRELEASED; urgency=low
     - Adding Apport support
     - Patch for recognizing special Huawei devices with weird serial
     - Bump debhelper build-depend to >= 7.0.50~ for override support
+    - Add a dh_strip override to add debugging symbols to ofono-dbg
     - Override lintian to avoid script-in-etc-init.d... warnings.
     - Update debian/compat to 7
-    - Fix script-in-etc-init.d-not-registered-via-update-rc.d lintian warning
+    - Add preinst script to remove old conf file (needed until next LTS)
   * Refreshed 01-check-that-modem-name-is-valid.patch for new release.
 
  -- Mathieu Trudel-Lapierre <mathieu-tl@ubuntu.com>  Thu, 02 Dec 2010 16:35:02 -0500
