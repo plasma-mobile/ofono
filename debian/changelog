@@ -1,4 +1,4 @@
-ofono (0.36-1ubuntu1) UNRELEASED; urgency=low
+ofono (0.36-1ubuntu1) natty; urgency=low
 
   * Merge from Debian unstable (LP: #683302), remaining changes:
     - Adding upstart config and preinst rules
@@ -12,7 +12,7 @@ ofono (0.36-1ubuntu1) UNRELEASED; urgency=low
     - Add preinst script to remove old conf file (needed until next LTS)
   * Refreshed 01-check-that-modem-name-is-valid.patch for new release.
 
- -- Mathieu Trudel-Lapierre <mathieu-tl@ubuntu.com>  Thu, 02 Dec 2010 16:35:02 -0500
+ -- Mathieu Trudel-Lapierre <mathieu-tl@ubuntu.com>  Mon, 13 Dec 2010 22:08:29 -0600
 
 ofono (0.36-1) unstable; urgency=low
 
