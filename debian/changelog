@@ -7,8 +7,10 @@ ofono (0.41-0ubuntu1) UNRELEASED; urgency=low
   * debian/patches/02-dont-handle-stacktraces.patch: stop catching stacktraces
     and printing the information internally, so apport can catch and report
     the possible bugs. (LP: #691450)
+  * debian/ofono.postinst: on configure, notify the user that a reboot is
+    required (so ofono can get started by upstart). (LP: #600501)
 
- -- Mathieu Trudel-Lapierre <mathieu-tl@ubuntu.com>  Thu, 10 Feb 2011 21:49:17 -0500
+ -- Mathieu Trudel-Lapierre <mathieu-tl@ubuntu.com>  Thu, 10 Feb 2011 21:55:07 -0500
 
 ofono (0.36-1ubuntu1) natty; urgency=low
 
