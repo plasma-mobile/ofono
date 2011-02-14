@@ -13,8 +13,10 @@ ofono (0.41-0ubuntu1) UNRELEASED; urgency=low
     bluetooth support.
   * debian/rules: drop override_dh_strip, not needed for debug symbols with
     cdbs.
+  * debian/rules: pass --no-restart-on-upgrade so ofono isn't automatically
+    restarted when upgrades.
 
- -- Mathieu Trudel-Lapierre <mathieu-tl@ubuntu.com>  Mon, 14 Feb 2011 09:08:24 -0500
+ -- Mathieu Trudel-Lapierre <mathieu-tl@ubuntu.com>  Mon, 14 Feb 2011 09:26:24 -0500
 
 ofono (0.36-1ubuntu1) natty; urgency=low
 
