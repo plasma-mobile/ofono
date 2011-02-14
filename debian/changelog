@@ -11,8 +11,10 @@ ofono (0.41-0ubuntu1) UNRELEASED; urgency=low
     required (so ofono can get started by upstart). (LP: #600501)
   * debian/control: add new Build-Depends on libbluetooth-dev to build with
     bluetooth support.
+  * debian/rules: drop override_dh_strip, not needed for debug symbols with
+    cdbs.
 
- -- Mathieu Trudel-Lapierre <mathieu-tl@ubuntu.com>  Thu, 10 Feb 2011 21:57:29 -0500
+ -- Mathieu Trudel-Lapierre <mathieu-tl@ubuntu.com>  Mon, 14 Feb 2011 09:08:24 -0500
 
 ofono (0.36-1ubuntu1) natty; urgency=low
 
