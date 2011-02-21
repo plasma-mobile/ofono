@@ -1,4 +1,4 @@
-ofono (0.41-0ubuntu1) UNRELEASED; urgency=low
+ofono (0.41-0ubuntu1) natty; urgency=low
 
   * New upstream release.
   * debian/control: explicitly Conflicts with modemmanager: having both
@@ -16,7 +16,7 @@ ofono (0.41-0ubuntu1) UNRELEASED; urgency=low
   * debian/rules: pass --no-restart-on-upgrade so ofono isn't automatically
     restarted when upgrades.
 
- -- Mathieu Trudel-Lapierre <mathieu-tl@ubuntu.com>  Mon, 14 Feb 2011 09:26:24 -0500
+ -- Mathieu Trudel-Lapierre <mathieu-tl@ubuntu.com>  Mon, 21 Feb 2011 15:08:51 +0100
 
 ofono (0.36-1ubuntu1) natty; urgency=low
 
