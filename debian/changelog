@@ -1,3 +1,23 @@
+ofono (0.41-0ubuntu1) UNRELEASED; urgency=low
+
+  * New upstream release.
+  * debian/control: explicitly Conflicts with modemmanager: having both
+    installed / running at the same time causes issues causes issues with both
+    claiming modem devices. (LP: #688472)
+  * debian/patches/02-dont-handle-stacktraces.patch: stop catching stacktraces
+    and printing the information internally, so apport can catch and report
+    the possible bugs. (LP: #691450)
+  * debian/ofono.postinst: on configure, notify the user that a reboot is
+    required (so ofono can get started by upstart). (LP: #600501)
+  * debian/control: add new Build-Depends on libbluetooth-dev to build with
+    bluetooth support.
+  * debian/rules: drop override_dh_strip, not needed for debug symbols with
+    cdbs.
+  * debian/rules: pass --no-restart-on-upgrade so ofono isn't automatically
+    restarted when upgrades.
+
+ -- Mathieu Trudel-Lapierre <mathieu-tl@ubuntu.com>  Mon, 14 Feb 2011 09:26:24 -0500
+
 ofono (0.36-1ubuntu1) natty; urgency=low
 
   * Merge from Debian unstable (LP: #683302), remaining changes:

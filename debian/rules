@@ -6,9 +6,8 @@ include /usr/share/cdbs/1/rules/debhelper.mk
 include /usr/share/cdbs/1/rules/simple-patchsys.mk
 include /usr/share/cdbs/1/rules/utils.mk
 
-common-binary-post-install-arch:: list-missing
+DEB_DH_INSTALLINIT_ARGS := --no-restart-on-upgrade
 
-override_dh_strip:
-	dh_strip --dbg-package=ofono-dbg
+common-binary-post-install-arch:: list-missing
 
 include $(CURDIR)/debian/update-patches.mk
