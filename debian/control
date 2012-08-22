@@ -3,16 +3,19 @@ Section: admin
 Priority: optional
 Maintainer: Ubuntu Developers <ubuntu-devel-discuss@lists.ubuntu.com>
 XSBC-Original-Maintainer: Debian Telepathy maintainers <pkg-telepathy-maintainers@lists.alioth.debian.org>
-Uploaders: Jonny Lamb <jonny@debian.org>
+Uploaders: Jonny Lamb <jonny@debian.org>, Hector Oron <zumbi@debian.org>, Konstantinos Margaritis <markos@debian.org>
 Build-Depends: debhelper (>= 7.0.50~),
                cdbs,
                libglib2.0-dev (>= 2.22),
                libdbus-glib-1-dev,
                libudev-dev,
-               libbluetooth-dev,
-               udev
-Standards-Version: 3.9.1
+               udev,
+               libbluetooth-dev (>= 4.30),
+               mobile-broadband-provider-info
+Standards-Version: 3.9.3
 Homepage: http://www.ofono.org/
+Vcs-Git: git://git.debian.org/git/pkg-telepathy/ofono.git
+Vcs-Browser: http://git.debian.org/?p=pkg-telepathy/ofono.git
 
 Package: ofono
 Architecture: any

@@ -1,3 +1,66 @@
+ofono (1.9-1ubuntu1) quantal; urgency=low
+
+  * Merge with Debian experimental; remaining changes:
+    - debian/control: explicitly Conflicts with modemmanager: having both
+      installed / running at the same time causes issues causes issues with
+      both claiming modem devices.
+    - debian/patches/02-dont-handle-stacktraces.patch: stop catching stacktraces
+      and printing the information internally, so apport can catch and report
+      the possible bugs.
+    - debian/ofono.postinst: on configure, notify the user that a reboot is
+      required (so ofono can get started by upstart). (LP: #600501)
+    - debian/rules: pass --no-restart-on-upgrade so ofono isn't automatically
+      restarted when upgrades.
+    - Adding upstart config / Removing standard init script
+    - Adding Apport support
+    - Patch for recognizing special Huawei devices with weird serial
+    - Override lintian to avoid script-in-etc-init.d... warnings.
+    - Update debian/compat to 7
+  * debian/series: add our patches to debian/patches/series now that the package
+    uses quilt.
+  * debian/patches/02-dont-handle-stacktraces.patch: refreshed.
+  * debian/ofono-dev.install, debian/ofono.install:
+    - Install usr/sbin/dundee and ofono.pc to the proper packages.
+
+ -- Mathieu Trudel-Lapierre <mathieu-tl@ubuntu.com>  Wed, 22 Aug 2012 19:59:08 -0400
+
+ofono (1.9-1) experimental; urgency=low
+
+  * New upstream release
+
+ -- Konstantinos Margaritis <markos@debian.org>  Tue, 31 Jul 2012 11:00:42 +0300
+
+ofono (1.6-2) unstable; urgency=low
+
+  * Add build dependency on mobile-broadband-provider-info 
+
+ -- Hector Oron <zumbi@debian.org>  Sat, 02 Jun 2012 00:55:18 +0200
+
+ofono (1.6-1) unstable; urgency=low
+
+  * New upstream release.
+  * Add myself to uploaders. 
+  * Update Standards-Version. 
+  * Change source/format to 3.0 (quilt)
+
+ -- Hector Oron <zumbi@debian.org>  Fri, 01 Jun 2012 18:29:37 +0200
+
+ofono (0.53-2) unstable; urgency=low
+
+  * debian/ofono.init: Add dbus as a dependency to start and stop. Thanks
+    to Johannes Schauer for the patch and report. (Closes: #631707)
+
+ -- Jonny Lamb <jonny@debian.org>  Wed, 24 Aug 2011 15:36:44 +0100
+
+ofono (0.53-1) unstable; urgency=low
+
+  * New upstream release.
+  * debian/control: Add Vcs-* fields.
+  * Ensure ofono is built with bluetooth support (pass --enable-bluetooth
+    and add libbluetooth-dev build-dep).
+
+ -- Jonny Lamb <jonny@debian.org>  Wed, 24 Aug 2011 14:40:25 +0100
+
 ofono (0.41-0ubuntu1) natty; urgency=low
 
   * New upstream release.

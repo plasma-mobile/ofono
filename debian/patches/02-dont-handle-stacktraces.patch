@@ -7,38 +7,25 @@ We short-circuit the internal handling of signals to allow them being caught
 by Apport running on a system. Since there won't always been useful debug
 symbols installed for all layers of the stack, it makes sense to do so anyway.
 
-Index: ofono-0.41/src/log.c
+---
+ src/log.c |   30 ------------------------------
+ 1 file changed, 30 deletions(-)
+
+Index: b/src/log.c
 ===================================================================
---- ofono-0.41.orig/src/log.c	2011-02-10 21:40:04.773465492 -0500
-+++ ofono-0.41/src/log.c	2011-02-10 21:40:54.293517673 -0500
-@@ -107,49 +107,6 @@
- 	va_end(ap);
+--- a/src/log.c
++++ b/src/log.c
+@@ -215,32 +215,6 @@ static void print_backtrace(unsigned int
+ 	close(infd[0]);
  }
  
 -static void signal_handler(int signo)
 -{
--	void *frames[64];
--	char **symbols;
--	size_t n_ptrs;
--	unsigned int i;
+-	ofono_error("Aborting (signal %d) [%s]", signo, program_exec);
 -
--	n_ptrs = backtrace(frames, G_N_ELEMENTS(frames));
--	symbols = backtrace_symbols(frames, n_ptrs);
--	if (symbols == NULL) {
--		ofono_error("No backtrace symbols");
--		exit(1);
--	}
+-	print_backtrace(2);
 -
--	ofono_error("Aborting (signal %d)", signo);
--	ofono_error("++++++++ backtrace ++++++++");
--
--	for (i = 1; i < n_ptrs; i++)
--		ofono_error("[%d]: %s", i - 1, symbols[i]);
--
--	ofono_error("+++++++++++++++++++++++++++");
--
--	g_free(symbols);
--	exit(1);
+-	exit(EXIT_FAILURE);
 -}
 -
 -static void signal_setup(sighandler_t handler)
@@ -61,16 +48,16 @@ Index: ofono-0.41/src/log.c
  extern struct ofono_debug_desc __start___debug[];
  extern struct ofono_debug_desc __stop___debug[];
  
-@@ -199,8 +156,6 @@
+@@ -305,8 +279,6 @@ int __ofono_log_init(const char *program
  	if (detach == FALSE)
  		option |= LOG_PERROR;
  
 -	signal_setup(signal_handler);
 -
- 	openlog("ofonod", option, LOG_DAEMON);
+ 	openlog(basename(program), option, LOG_DAEMON);
  
  	syslog(LOG_INFO, "oFono version %s", VERSION);
-@@ -214,7 +169,5 @@
+@@ -320,7 +292,5 @@ void __ofono_log_cleanup(void)
  
  	closelog();
  

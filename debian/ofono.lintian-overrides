@@ -1,1 +1,1 @@
-ofono: script-in-etc-init.d-not-registered-via-update-rc.d /etc/init.d/ofono
+ofono: postrm-does-not-call-updaterc.d-for-init.d-script etc/init.d/ofono
