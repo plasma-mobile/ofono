@@ -1,4 +1,4 @@
-ofono (1.12-0ubuntu2) UNRELEASED; urgency=low
+ofono (1.12-0ubuntu1) raring; urgency=low
 
   * New upstream release. (1.12)
     - 1.12:
@@ -26,7 +26,7 @@ ofono (1.12-0ubuntu2) UNRELEASED; urgency=low
       + Update multiple descriptions of the API documentation.
       + Add support for ReleaseAndSwap call handling.
 
- -- Stéphane Graber <stgraber@ubuntu.com>  Mon, 28 Jan 2013 11:25:37 -0500
+ -- Stéphane Graber <stgraber@ubuntu.com>  Mon, 28 Jan 2013 14:07:46 -0500
 
 ofono (1.9-1ubuntu1) quantal; urgency=low
 
