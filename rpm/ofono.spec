@@ -82,6 +82,8 @@ mkdir -p %{buildroot}/%{_sysconfdir}/ofono/push_forwarder.d
 mkdir -p %{buildroot}/%{_lib}/systemd/system/network.target.wants
 ln -s ../ofono.service %{buildroot}/%{_lib}/systemd/system/network.target.wants/ofono.service
 
+mkdir -p %{buildroot}/var/lib/ofono
+
 %preun
 if [ "$1" -eq 0 ]; then
 systemctl stop ofono.service ||:
